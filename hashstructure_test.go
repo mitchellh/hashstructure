@@ -9,6 +9,8 @@ func TestHash_identity(t *testing.T) {
 		nil,
 		"foo",
 		42,
+		true,
+		false,
 		[]string{"foo", "bar"},
 		[]interface{}{1, nil, "foo"},
 		map[string]string{"foo": "bar"},

@@ -67,6 +67,12 @@ func (w *walker) visit(v reflect.Value) error {
 		v = reflect.ValueOf(int64(v.Int()))
 	case reflect.Uint:
 		v = reflect.ValueOf(uint64(v.Uint()))
+	case reflect.Bool:
+		var tmp int8
+		if v.Bool() {
+			tmp = 1
+		}
+		v = reflect.ValueOf(tmp)
 	}
 
 	k := v.Kind()
