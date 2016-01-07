@@ -24,6 +24,8 @@ func TestHash_equal(t *testing.T) {
 	}
 
 	for _, tc := range cases {
+		// We run the test 100 times to try to tease out variability
+		// in the runtime in terms of ordering.
 		valuelist := make([]uint64, 100)
 		for i, _ := range valuelist {
 			v, err := Hash(tc, nil)
@@ -34,10 +36,12 @@ func TestHash_equal(t *testing.T) {
 			valuelist[i] = v
 		}
 
+		// Zero is always wrong
 		if valuelist[0] == 0 {
 			t.Fatalf("zero hash: %#v", tc)
 		}
 
+		// Make sure all the values match
 		t.Logf("%#v: %d", tc, valuelist[0])
 		for i := 1; i < len(valuelist); i++ {
 			if valuelist[i] != valuelist[0] {

@@ -7,6 +7,7 @@ import (
 	"hash/crc64"
 	"io"
 	"reflect"
+	"sort"
 )
 
 // HashOptions are options that are available for hashing.
@@ -85,7 +86,23 @@ func (w *walker) visit(v reflect.Value) error {
 		}
 
 	case reflect.Map:
-		for _, k := range v.MapKeys() {
+		var err error
+
+		// We first need to order the keys so it is a deterministic walk
+		m := make(map[uint64]reflect.Value)
+		ks := make([]uint64, v.Len())
+		for i, k := range v.MapKeys() {
+			ks[i], err = Hash(k.Interface(), nil)
+			m[ks[i]] = k
+			if err != nil {
+				return err
+			}
+		}
+
+		// Go through the sorted keys and hash
+		sort.Sort(uint64Slice(ks))
+		for _, hashKey := range ks {
+			k := m[hashKey]
 			v := v.MapIndex(k)
 			if err := w.visit(k); err != nil {
 				return err
@@ -124,3 +141,10 @@ func (w *walker) visit(v reflect.Value) error {
 
 	return nil
 }
+
+// uint64Slice is a sortable uint64 slice
+type uint64Slice []uint64
+
+func (p uint64Slice) Len() int           { return len(p) }
+func (p uint64Slice) Less(i, j int) bool { return p[i] < p[j] }
+func (p uint64Slice) Swap(i, j int)      { p[i], p[j] = p[j], p[i] }
