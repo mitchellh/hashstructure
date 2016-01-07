@@ -135,7 +135,7 @@ func (w *walker) visit(v reflect.Value) error {
 			// hash function, panic.
 			if _, ok := m[ks[i]]; ok {
 				if hasher != nil {
-					panic(fmt.Sprintf("unresolvable hash collision: %#v", k.Interface()))
+					return fmt.Errorf("unresolvable hash collision: %#v", k.Interface())
 				}
 
 				hasher = fnv.New64()
