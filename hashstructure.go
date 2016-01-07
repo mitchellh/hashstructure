@@ -21,6 +21,15 @@ type HashOptions struct {
 //
 // If opts is nil, then default options will be used. See HashOptions
 // for the default values.
+//
+// Notes on the value:
+//
+//   * Unexported fields on structs are ignored and do not affect the
+//     hash value.
+//
+//   * Adding an exported field to a struct with the zero value will change
+//     the hash value.
+//
 func Hash(v interface{}, opts *HashOptions) (uint64, error) {
 	// Create default options
 	if opts == nil {
