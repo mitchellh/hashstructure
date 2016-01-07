@@ -140,6 +140,7 @@ func (w *walker) visit(v reflect.Value) error {
 
 				hasher = fnv.New64()
 				i = 0
+				continue
 			}
 
 			m[ks[i]] = k
