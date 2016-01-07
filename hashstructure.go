@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"hash"
 	"hash/crc64"
+	"hash/fnv"
 	"io"
 	"reflect"
 	"sort"
@@ -118,14 +119,30 @@ func (w *walker) visit(v reflect.Value) error {
 		var err error
 
 		// We first need to order the keys so it is a deterministic walk
+		var hasher hash.Hash64
 		m := make(map[uint64]reflect.Value)
 		ks := make([]uint64, v.Len())
-		for i, k := range v.MapKeys() {
-			ks[i], err = Hash(k.Interface(), nil)
-			m[ks[i]] = k
+		keys := v.MapKeys()
+		for i := 0; i < len(keys); i++ {
+			k := keys[i]
+			ks[i], err = Hash(k.Interface(), &HashOptions{Hasher: hasher})
 			if err != nil {
 				return err
 			}
+
+			// Hash collision! We use a secondary hash function. Reset
+			// the loop and start over. If we already are trying a second
+			// hash function, panic.
+			if _, ok := m[ks[i]]; ok {
+				if hasher != nil {
+					panic(fmt.Sprintf("unresolvable hash collision: %#v", k.Interface()))
+				}
+
+				hasher = fnv.New64()
+				i = 0
+			}
+
+			m[ks[i]] = k
 		}
 
 		// Go through the sorted keys and hash
