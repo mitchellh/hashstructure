@@ -13,7 +13,9 @@ import (
 // HashOptions are options that are available for hashing.
 type HashOptions struct {
 	// Hasher is the hash function to use. If this isn't set, it will
-	// default to CRC-64.
+	// default to CRC-64. CRC probably isn't the best hash function to use
+	// but it is in the Go standard library and there is a lot of support
+	// for hardware acceleration.
 	Hasher hash.Hash64
 }
 
