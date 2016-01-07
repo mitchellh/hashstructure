@@ -23,6 +23,13 @@ func TestHash_identity(t *testing.T) {
 			Foo: "foo",
 			Bar: []interface{}{nil, nil, nil},
 		},
+		&struct {
+			Foo string
+			Bar []interface{}
+		}{
+			Foo: "foo",
+			Bar: []interface{}{nil, nil, nil},
+		},
 	}
 
 	for _, tc := range cases {

@@ -56,11 +56,23 @@ type walker struct {
 }
 
 func (w *walker) visit(v reflect.Value) error {
-	// If we have an interface, dereference it. We have to do this up
-	// here because it might be a nil in there and the check below must
-	// catch that.
-	if v.Kind() == reflect.Interface {
-		v = v.Elem()
+	// Loop since these can be wrapped in multiple layers of pointers
+	// and interfaces.
+	for {
+		// If we have an interface, dereference it. We have to do this up
+		// here because it might be a nil in there and the check below must
+		// catch that.
+		if v.Kind() == reflect.Interface {
+			v = v.Elem()
+			continue
+		}
+
+		if v.Kind() == reflect.Ptr {
+			v = reflect.Indirect(v)
+			continue
+		}
+
+		break
 	}
 
 	// If it is nil, treat it like a zero.
