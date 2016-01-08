@@ -5,10 +5,8 @@ import (
 	"fmt"
 	"hash"
 	"hash/crc64"
-	"hash/fnv"
 	"io"
 	"reflect"
-	"sort"
 )
 
 // HashOptions are options that are available for hashing.
@@ -116,23 +114,25 @@ func (w *walker) visit(v reflect.Value) error {
 		}
 
 	case reflect.Map:
-		// We first need to order the keys so it is a deterministic walk
-		keys := v.MapKeys()
-		idxs, err := sortValues(keys)
-		if err != nil {
-			return err
+		// Build the hash for the map. We do this by XOR-ing all the key
+		// and value hashes. This makes it deterministic despite ordering.
+		var h uint64
+		for _, k := range v.MapKeys() {
+			v := v.MapIndex(k)
+
+			kh, err := Hash(k.Interface(), nil)
+			if err != nil {
+				return err
+			}
+			vh, err := Hash(v.Interface(), nil)
+			if err != nil {
+				return err
+			}
+
+			h = h ^ kh ^ vh
 		}
 
-		for _, idx := range idxs {
-			k := keys[idx]
-			v := v.MapIndex(k)
-			if err := w.visit(k); err != nil {
-				return err
-			}
-			if err := w.visit(v); err != nil {
-				return err
-			}
-		}
+		return binary.Write(w.w, binary.LittleEndian, h)
 
 	case reflect.Struct:
 		t := v.Type()
@@ -163,73 +163,3 @@ func (w *walker) visit(v reflect.Value) error {
 
 	return nil
 }
-
-// sortValues sorts arbitrary reflection values and returns the ordering
-// of that they should be accessed. Given the same set of reflect values,
-// this will always return the same int slice.
-func sortValues(vs []reflect.Value) ([]int, error) {
-	// This stores any values that have collisions and need to be
-	// recomputed. Because this is so rare, we don't allocate anything here.
-	var collision []int
-
-	// Get the hash values for all the keys
-	var err error
-	ks := make([]uint64, len(vs))
-	m := make(map[uint64]int)
-	for i, v := range vs {
-		ks[i], err = Hash(v.Interface(), nil)
-		if err != nil {
-			return nil, err
-		}
-
-		if v, ok := m[ks[i]]; ok {
-			if v >= 0 {
-				// Store the original collision and mark the index as -1
-				// which means we already recorded it, but that it was a
-				// collision for the future.
-				collision = append(collision, v)
-				m[ks[i]] = -1
-			}
-
-			collision = append(collision, i)
-			continue
-		}
-
-		m[ks[i]] = i
-	}
-
-	// If we have any collisions, hash those now using FNV
-	if len(collision) > 0 {
-		hasher := fnv.New64()
-		for _, c := range collision {
-			ks[c], err = Hash(vs[c].Interface(), &HashOptions{Hasher: hasher})
-			if err != nil {
-				return nil, err
-			}
-
-			if _, ok := m[ks[c]]; ok {
-				return nil, fmt.Errorf(
-					"unresolvable hash collision: %#v", vs[c].Interface())
-			}
-
-			m[ks[c]] = c
-		}
-	}
-
-	// Sort the keys
-	sort.Sort(uint64Slice(ks))
-
-	// Build the result
-	result := make([]int, len(vs))
-	for i, v := range ks {
-		result[i] = m[v]
-	}
-	return result, nil
-}
-
-// uint64Slice is a sortable uint64 slice
-type uint64Slice []uint64
-
-func (p uint64Slice) Len() int           { return len(p) }
-func (p uint64Slice) Less(i, j int) bool { return p[i] < p[j] }
-func (p uint64Slice) Swap(i, j int)      { p[i], p[j] = p[j], p[i] }
