@@ -138,3 +138,48 @@ func TestHash_equalIgnore(t *testing.T) {
 		}
 	}
 }
+
+func TestHash_equalSet(t *testing.T) {
+	type Test struct {
+		Name    string
+		Friends []string `hash:"set"`
+	}
+
+	cases := []struct {
+		One, Two interface{}
+		Match    bool
+	}{
+		{
+			Test{Name: "foo", Friends: []string{"foo", "bar"}},
+			Test{Name: "foo", Friends: []string{"bar", "foo"}},
+			true,
+		},
+
+		{
+			Test{Name: "foo", Friends: []string{"foo", "bar"}},
+			Test{Name: "foo", Friends: []string{"foo", "bar"}},
+			true,
+		},
+	}
+
+	for _, tc := range cases {
+		one, err := Hash(tc.One, nil)
+		if err != nil {
+			t.Fatalf("Failed to hash %#v: %s", tc.One, err)
+		}
+		two, err := Hash(tc.Two, nil)
+		if err != nil {
+			t.Fatalf("Failed to hash %#v: %s", tc.Two, err)
+		}
+
+		// Zero is always wrong
+		if one == 0 {
+			t.Fatalf("zero hash: %#v", tc.One)
+		}
+
+		// Compare
+		if (one == two) != tc.Match {
+			t.Fatalf("bad, expected: %#v\n\n%#v\n\n%#v", tc.Match, tc.One, tc.Two)
+		}
+	}
+}

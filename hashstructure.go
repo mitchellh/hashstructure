@@ -46,6 +46,9 @@ type HashOptions struct {
 //
 //   * "ignore" - The field will be ignored and not affect the hash code.
 //
+//   * "set" - The field will be treated as a set, where ordering doesn't
+//             affect the hash code. This only works for slices.
+//
 func Hash(v interface{}, opts *HashOptions) (uint64, error) {
 	// Create default options
 	if opts == nil {
@@ -66,7 +69,7 @@ func Hash(v interface{}, opts *HashOptions) (uint64, error) {
 		w:   opts.Hasher,
 		tag: opts.TagName,
 	}
-	if err := w.visit(reflect.ValueOf(v)); err != nil {
+	if err := w.visit(reflect.ValueOf(v), 0); err != nil {
 		return 0, err
 	}
 
@@ -78,7 +81,7 @@ type walker struct {
 	tag string
 }
 
-func (w *walker) visit(v reflect.Value) error {
+func (w *walker) visit(v reflect.Value, f visitFlag) error {
 	// Loop since these can be wrapped in multiple layers of pointers
 	// and interfaces.
 	for {
@@ -130,7 +133,7 @@ func (w *walker) visit(v reflect.Value) error {
 	case reflect.Array:
 		l := v.Len()
 		for i := 0; i < l; i++ {
-			if err := w.visit(v.Index(i)); err != nil {
+			if err := w.visit(v.Index(i), 0); err != nil {
 				return err
 			}
 		}
@@ -161,6 +164,7 @@ func (w *walker) visit(v reflect.Value) error {
 		l := v.NumField()
 		for i := 0; i < l; i++ {
 			if v := v.Field(i); v.CanSet() || t.Field(i).Name != "_" {
+				var f visitFlag
 				fieldType := t.Field(i)
 				tag := fieldType.Tag.Get(w.tag)
 				if tag == "ignore" {
@@ -168,18 +172,40 @@ func (w *walker) visit(v reflect.Value) error {
 					continue
 				}
 
-				if err := w.visit(v); err != nil {
+				switch tag {
+				case "set":
+					f |= visitFlagSet
+				}
+
+				if err := w.visit(v, f); err != nil {
 					return err
 				}
 			}
 		}
 
 	case reflect.Slice:
+		// We have two behaviors here. If it isn't a set, then we just
+		// visit all the elements. If it is a set, then we do a deterministic
+		// hash code.
+		var h uint64
+		set := (f & visitFlagSet) != 0
 		l := v.Len()
 		for i := 0; i < l; i++ {
-			if err := w.visit(v.Index(i)); err != nil {
+			var err error
+			if set {
+				var hc uint64
+				hc, err = Hash(v.Index(i).Interface(), nil)
+				h = h ^ hc
+			} else {
+				err = w.visit(v.Index(i), 0)
+			}
+			if err != nil {
 				return err
 			}
+		}
+
+		if set {
+			return binary.Write(w.w, binary.LittleEndian, h)
 		}
 
 	case reflect.String:
@@ -192,3 +218,10 @@ func (w *walker) visit(v reflect.Value) error {
 
 	return nil
 }
+
+type visitFlag uint
+
+const (
+	visitFlagInvalid visitFlag = iota
+	visitFlagSet               = iota << 1
+)
