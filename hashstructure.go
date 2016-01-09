@@ -16,6 +16,10 @@ type HashOptions struct {
 	// but it is in the Go standard library and there is a lot of support
 	// for hardware acceleration.
 	Hasher hash.Hash64
+
+	// TagName is the struct tag to look at when hashing the structure.
+	// By default this is "hash".
+	TagName string
 }
 
 // Hash returns the hash value of an arbitrary value.
@@ -31,6 +35,17 @@ type HashOptions struct {
 //   * Adding an exported field to a struct with the zero value will change
 //     the hash value.
 //
+// For structs, the hashing can be controlled using tags. For example:
+//
+//    struct {
+//        Name string
+//        UUID string `hash:"ignore"`
+//    }
+//
+// The available tag values are:
+//
+//   * "ignore" - The field will be ignored and not affect the hash code.
+//
 func Hash(v interface{}, opts *HashOptions) (uint64, error) {
 	// Create default options
 	if opts == nil {
@@ -39,12 +54,18 @@ func Hash(v interface{}, opts *HashOptions) (uint64, error) {
 	if opts.Hasher == nil {
 		opts.Hasher = crc64.New(crc64.MakeTable(crc64.ECMA))
 	}
+	if opts.TagName == "" {
+		opts.TagName = "hash"
+	}
 
 	// Reset the hash
 	opts.Hasher.Reset()
 
 	// Create our walker and walk the structure
-	w := &walker{w: opts.Hasher}
+	w := &walker{
+		w:   opts.Hasher,
+		tag: opts.TagName,
+	}
 	if err := w.visit(reflect.ValueOf(v)); err != nil {
 		return 0, err
 	}
@@ -53,7 +74,8 @@ func Hash(v interface{}, opts *HashOptions) (uint64, error) {
 }
 
 type walker struct {
-	w io.Writer
+	w   io.Writer
+	tag string
 }
 
 func (w *walker) visit(v reflect.Value) error {
@@ -139,6 +161,13 @@ func (w *walker) visit(v reflect.Value) error {
 		l := v.NumField()
 		for i := 0; i < l; i++ {
 			if v := v.Field(i); v.CanSet() || t.Field(i).Name != "_" {
+				fieldType := t.Field(i)
+				tag := fieldType.Tag.Get(w.tag)
+				if tag == "ignore" {
+					// Ignore this field
+					continue
+				}
+
 				if err := w.visit(v); err != nil {
 					return err
 				}

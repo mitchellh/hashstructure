@@ -93,3 +93,48 @@ func TestHash_equal(t *testing.T) {
 		}
 	}
 }
+
+func TestHash_equalIgnore(t *testing.T) {
+	type Test struct {
+		Name string
+		UUID string `hash:"ignore"`
+	}
+
+	cases := []struct {
+		One, Two interface{}
+		Match    bool
+	}{
+		{
+			Test{Name: "foo", UUID: "foo"},
+			Test{Name: "foo", UUID: "bar"},
+			true,
+		},
+
+		{
+			Test{Name: "foo", UUID: "foo"},
+			Test{Name: "foo", UUID: "foo"},
+			true,
+		},
+	}
+
+	for _, tc := range cases {
+		one, err := Hash(tc.One, nil)
+		if err != nil {
+			t.Fatalf("Failed to hash %#v: %s", tc.One, err)
+		}
+		two, err := Hash(tc.Two, nil)
+		if err != nil {
+			t.Fatalf("Failed to hash %#v: %s", tc.Two, err)
+		}
+
+		// Zero is always wrong
+		if one == 0 {
+			t.Fatalf("zero hash: %#v", tc.One)
+		}
+
+		// Compare
+		if (one == two) != tc.Match {
+			t.Fatalf("bad, expected: %#v\n\n%#v\n\n%#v", tc.Match, tc.One, tc.Two)
+		}
+	}
+}
