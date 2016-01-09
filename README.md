@@ -7,6 +7,19 @@ This can be used to key values in a hash (for use in a map, set, etc.)
 that are complex. The most common use case is comparing two values without
 sending data across the network, caching values locally (de-dup), and so on.
 
+## Features
+
+  * Hash any arbitrary Go value, including complex types.
+
+  * Tag a struct field to ignore it and not affect the hash value.
+
+  * Tag a slice type struct field to treat it as a set where ordering
+    doesn't affect the hash code but the field itself is still taken into
+    account to create the hash value.
+
+  * Optionally specify a custom hash function to optimize for speed, collision
+    avoidance for your data set, etc.
+
 ## Installation
 
 Standard `go get`:
