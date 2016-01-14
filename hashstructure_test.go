@@ -70,6 +70,18 @@ func TestHash_equal(t *testing.T) {
 			map[interface{}]string{"foo": "bar"},
 			true,
 		},
+
+		{
+			struct{ Fname, Lname string }{"foo", "bar"},
+			struct{ Fname, Lname string }{"bar", "foo"},
+			false,
+		},
+
+		{
+			struct{ Lname, Fname string }{"foo", "bar"},
+			struct{ Fname, Lname string }{"foo", "bar"},
+			false,
+		},
 	}
 
 	for _, tc := range cases {

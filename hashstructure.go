@@ -226,7 +226,12 @@ func (w *walker) visit(v reflect.Value, opts *visitOpts) (uint64, error) {
 					f |= visitFlagSet
 				}
 
-				code, err := w.visit(v, &visitOpts{
+				kh, err := w.visit(reflect.ValueOf(fieldType.Name), nil)
+				if err != nil {
+					return 0, err
+				}
+
+				vh, err := w.visit(v, &visitOpts{
 					Flags:       f,
 					Struct:      parent,
 					StructField: fieldType.Name,
@@ -235,7 +240,8 @@ func (w *walker) visit(v reflect.Value, opts *visitOpts) (uint64, error) {
 					return 0, err
 				}
 
-				h = hashUpdateOrdered(w.h, h, code)
+				h = hashUpdateOrdered(w.h, h, kh)
+				h = hashUpdateOrdered(w.h, h, vh)
 			}
 		}
 
