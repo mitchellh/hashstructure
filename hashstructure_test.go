@@ -82,6 +82,12 @@ func TestHash_equal(t *testing.T) {
 			struct{ Fname, Lname string }{"foo", "bar"},
 			false,
 		},
+
+		{
+			struct{ Lname, Fname string }{"foo", "bar"},
+			struct{ Fname, Lname string }{"bar", "foo"},
+			true,
+		},
 	}
 
 	for _, tc := range cases {

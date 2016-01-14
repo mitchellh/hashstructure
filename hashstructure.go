@@ -4,16 +4,14 @@ import (
 	"encoding/binary"
 	"fmt"
 	"hash"
-	"hash/crc64"
+	"hash/fnv"
 	"reflect"
 )
 
 // HashOptions are options that are available for hashing.
 type HashOptions struct {
 	// Hasher is the hash function to use. If this isn't set, it will
-	// default to CRC-64. CRC probably isn't the best hash function to use
-	// but it is in the Go standard library and there is a lot of support
-	// for hardware acceleration.
+	// default to FNV.
 	Hasher hash.Hash64
 
 	// TagName is the struct tag to look at when hashing the structure.
@@ -54,7 +52,7 @@ func Hash(v interface{}, opts *HashOptions) (uint64, error) {
 		opts = &HashOptions{}
 	}
 	if opts.Hasher == nil {
-		opts.Hasher = crc64.New(crc64.MakeTable(crc64.ECMA))
+		opts.Hasher = fnv.New64()
 	}
 	if opts.TagName == "" {
 		opts.TagName = "hash"
@@ -240,8 +238,8 @@ func (w *walker) visit(v reflect.Value, opts *visitOpts) (uint64, error) {
 					return 0, err
 				}
 
-				h = hashUpdateOrdered(w.h, h, kh)
-				h = hashUpdateOrdered(w.h, h, vh)
+				fieldHash := hashUpdateOrdered(w.h, kh, vh)
+				h = hashUpdateUnordered(h, fieldHash)
 			}
 		}
 
