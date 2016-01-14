@@ -186,7 +186,12 @@ func (w *walker) visit(v reflect.Value, opts *visitOpts) error {
 		return binary.Write(w.w, binary.LittleEndian, h)
 
 	case reflect.Struct:
+		var include Includable
 		parent := v.Interface()
+		if impl, ok := parent.(Includable); ok {
+			include = impl
+		}
+
 		t := v.Type()
 		l := v.NumField()
 		for i := 0; i < l; i++ {
@@ -197,6 +202,17 @@ func (w *walker) visit(v reflect.Value, opts *visitOpts) error {
 				if tag == "ignore" {
 					// Ignore this field
 					continue
+				}
+
+				// Check if we implement includable and check it
+				if include != nil {
+					incl, err := include.HashInclude(fieldType.Name, v)
+					if err != nil {
+						return err
+					}
+					if !incl {
+						continue
+					}
 				}
 
 				switch tag {
