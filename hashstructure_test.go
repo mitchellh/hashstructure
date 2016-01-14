@@ -183,3 +183,120 @@ func TestHash_equalSet(t *testing.T) {
 		}
 	}
 }
+
+func TestHash_includable(t *testing.T) {
+	cases := []struct {
+		One, Two interface{}
+		Match    bool
+	}{
+		{
+			testIncludable{Value: "foo"},
+			testIncludable{Value: "foo"},
+			true,
+		},
+
+		{
+			testIncludable{Value: "foo", Ignore: "bar"},
+			testIncludable{Value: "foo"},
+			true,
+		},
+
+		{
+			testIncludable{Value: "foo", Ignore: "bar"},
+			testIncludable{Value: "bar"},
+			false,
+		},
+	}
+
+	for _, tc := range cases {
+		one, err := Hash(tc.One, nil)
+		if err != nil {
+			t.Fatalf("Failed to hash %#v: %s", tc.One, err)
+		}
+		two, err := Hash(tc.Two, nil)
+		if err != nil {
+			t.Fatalf("Failed to hash %#v: %s", tc.Two, err)
+		}
+
+		// Zero is always wrong
+		if one == 0 {
+			t.Fatalf("zero hash: %#v", tc.One)
+		}
+
+		// Compare
+		if (one == two) != tc.Match {
+			t.Fatalf("bad, expected: %#v\n\n%#v\n\n%#v", tc.Match, tc.One, tc.Two)
+		}
+	}
+}
+
+func TestHash_includableMap(t *testing.T) {
+	cases := []struct {
+		One, Two interface{}
+		Match    bool
+	}{
+		{
+			testIncludableMap{Map: map[string]string{"foo": "bar"}},
+			testIncludableMap{Map: map[string]string{"foo": "bar"}},
+			true,
+		},
+
+		{
+			testIncludableMap{Map: map[string]string{"foo": "bar", "ignore": "true"}},
+			testIncludableMap{Map: map[string]string{"foo": "bar"}},
+			true,
+		},
+
+		{
+			testIncludableMap{Map: map[string]string{"foo": "bar", "ignore": "true"}},
+			testIncludableMap{Map: map[string]string{"bar": "baz"}},
+			false,
+		},
+	}
+
+	for _, tc := range cases {
+		one, err := Hash(tc.One, nil)
+		if err != nil {
+			t.Fatalf("Failed to hash %#v: %s", tc.One, err)
+		}
+		two, err := Hash(tc.Two, nil)
+		if err != nil {
+			t.Fatalf("Failed to hash %#v: %s", tc.Two, err)
+		}
+
+		// Zero is always wrong
+		if one == 0 {
+			t.Fatalf("zero hash: %#v", tc.One)
+		}
+
+		// Compare
+		if (one == two) != tc.Match {
+			t.Fatalf("bad, expected: %#v\n\n%#v\n\n%#v", tc.Match, tc.One, tc.Two)
+		}
+	}
+}
+
+type testIncludable struct {
+	Value  string
+	Ignore string
+}
+
+func (t testIncludable) HashInclude(field string, v interface{}) (bool, error) {
+	return field != "Ignore", nil
+}
+
+type testIncludableMap struct {
+	Map map[string]string
+}
+
+func (t testIncludableMap) HashIncludeMap(field string, k, v interface{}) (bool, error) {
+	if field != "Map" {
+		return true, nil
+	}
+
+	if s, ok := k.(string); ok && s == "ignore" {
+		return false, nil
+	}
+
+	return true, nil
+}

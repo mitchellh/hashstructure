@@ -69,7 +69,7 @@ func Hash(v interface{}, opts *HashOptions) (uint64, error) {
 		w:   opts.Hasher,
 		tag: opts.TagName,
 	}
-	if err := w.visit(reflect.ValueOf(v), 0); err != nil {
+	if err := w.visit(reflect.ValueOf(v), nil); err != nil {
 		return 0, err
 	}
 
@@ -81,7 +81,16 @@ type walker struct {
 	tag string
 }
 
-func (w *walker) visit(v reflect.Value, f visitFlag) error {
+type visitOpts struct {
+	// Flags are a bitmask of flags to affect behavior of this visit
+	Flags visitFlag
+
+	// Information about the struct containing this field
+	Struct      interface{}
+	StructField string
+}
+
+func (w *walker) visit(v reflect.Value, opts *visitOpts) error {
 	// Loop since these can be wrapped in multiple layers of pointers
 	// and interfaces.
 	for {
@@ -133,17 +142,34 @@ func (w *walker) visit(v reflect.Value, f visitFlag) error {
 	case reflect.Array:
 		l := v.Len()
 		for i := 0; i < l; i++ {
-			if err := w.visit(v.Index(i), 0); err != nil {
+			if err := w.visit(v.Index(i), nil); err != nil {
 				return err
 			}
 		}
 
 	case reflect.Map:
+		var includeMap IncludableMap
+		if opts != nil && opts.Struct != nil {
+			if v, ok := opts.Struct.(IncludableMap); ok {
+				includeMap = v
+			}
+		}
+
 		// Build the hash for the map. We do this by XOR-ing all the key
 		// and value hashes. This makes it deterministic despite ordering.
 		var h uint64
 		for _, k := range v.MapKeys() {
 			v := v.MapIndex(k)
+			if includeMap != nil {
+				incl, err := includeMap.HashIncludeMap(
+					opts.StructField, k.Interface(), v.Interface())
+				if err != nil {
+					return err
+				}
+				if !incl {
+					continue
+				}
+			}
 
 			kh, err := Hash(k.Interface(), nil)
 			if err != nil {
@@ -160,6 +186,12 @@ func (w *walker) visit(v reflect.Value, f visitFlag) error {
 		return binary.Write(w.w, binary.LittleEndian, h)
 
 	case reflect.Struct:
+		var include Includable
+		parent := v.Interface()
+		if impl, ok := parent.(Includable); ok {
+			include = impl
+		}
+
 		t := v.Type()
 		l := v.NumField()
 		for i := 0; i < l; i++ {
@@ -172,12 +204,28 @@ func (w *walker) visit(v reflect.Value, f visitFlag) error {
 					continue
 				}
 
+				// Check if we implement includable and check it
+				if include != nil {
+					incl, err := include.HashInclude(fieldType.Name, v)
+					if err != nil {
+						return err
+					}
+					if !incl {
+						continue
+					}
+				}
+
 				switch tag {
 				case "set":
 					f |= visitFlagSet
 				}
 
-				if err := w.visit(v, f); err != nil {
+				err := w.visit(v, &visitOpts{
+					Flags:       f,
+					Struct:      parent,
+					StructField: fieldType.Name,
+				})
+				if err != nil {
 					return err
 				}
 			}
@@ -188,7 +236,10 @@ func (w *walker) visit(v reflect.Value, f visitFlag) error {
 		// visit all the elements. If it is a set, then we do a deterministic
 		// hash code.
 		var h uint64
-		set := (f & visitFlagSet) != 0
+		var set bool
+		if opts != nil {
+			set = (opts.Flags & visitFlagSet) != 0
+		}
 		l := v.Len()
 		for i := 0; i < l; i++ {
 			var err error
@@ -197,7 +248,7 @@ func (w *walker) visit(v reflect.Value, f visitFlag) error {
 				hc, err = Hash(v.Index(i).Interface(), nil)
 				h = h ^ hc
 			} else {
-				err = w.visit(v.Index(i), 0)
+				err = w.visit(v.Index(i), nil)
 			}
 			if err != nil {
 				return err
