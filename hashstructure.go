@@ -195,8 +195,12 @@ func (w *walker) visit(v reflect.Value, opts *visitOpts) (uint64, error) {
 			include = impl
 		}
 
-		var h uint64
 		t := v.Type()
+		h, err := w.visit(reflect.ValueOf(t.Name()), nil)
+		if err != nil {
+			return 0, err
+		}
+
 		l := v.NumField()
 		for i := 0; i < l; i++ {
 			if v := v.Field(i); v.CanSet() || t.Field(i).Name != "_" {
