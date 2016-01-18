@@ -206,6 +206,11 @@ func (w *walker) visit(v reflect.Value, opts *visitOpts) (uint64, error) {
 			if v := v.Field(i); v.CanSet() || t.Field(i).Name != "_" {
 				var f visitFlag
 				fieldType := t.Field(i)
+				if fieldType.PkgPath != "" {
+					// Unexported
+					continue
+				}
+
 				tag := fieldType.Tag.Get(w.tag)
 				if tag == "ignore" {
 					// Ignore this field

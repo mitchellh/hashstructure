@@ -97,6 +97,24 @@ func TestHash_equal(t *testing.T) {
 			testBar{"foo"},
 			false,
 		},
+
+		{
+			struct {
+				Foo        string
+				unexported string
+			}{
+				Foo:        "bar",
+				unexported: "baz",
+			},
+			struct {
+				Foo        string
+				unexported string
+			}{
+				Foo:        "bar",
+				unexported: "bang",
+			},
+			true,
+		},
 	}
 
 	for _, tc := range cases {
