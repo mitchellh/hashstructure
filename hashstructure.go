@@ -212,6 +212,11 @@ func (w *walker) visit(v reflect.Value, opts *visitOpts) (uint64, error) {
 					continue
 				}
 
+				if t.Field(i).PkgPath != "" {
+					// This is an unexported field, skip it.
+					continue
+				}
+
 				// Check if we implement includable and check it
 				if include != nil {
 					incl, err := include.HashInclude(fieldType.Name, v)

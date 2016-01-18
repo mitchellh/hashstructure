@@ -303,6 +303,78 @@ func TestHash_includableMap(t *testing.T) {
 	}
 }
 
+func TestEmptyStruct(t *testing.T) {
+	type structWithoutExportedFields struct {
+		v struct{}
+	}
+
+	Hash(structWithoutExportedFields{}, nil)
+
+	var err error
+
+	hash1, err := Hash(structWithoutExportedFields{}, nil)
+	if err != nil {
+		t.Fatalf("Error: %s", err)
+	}
+
+	hash2, err := Hash(structWithoutExportedFields{struct{}{}}, nil)
+	if err != nil {
+		t.Fatalf("Error: %s", err)
+	}
+
+	if hash1 != hash2 {
+		t.Fatalf("Expecting same hash.")
+	}
+
+	type structWithoutHashableFields struct {
+		structWithoutExportedFields
+		AnotherOne string `hash:"ignore"`
+	}
+
+	hash1, err = Hash(structWithoutHashableFields{structWithoutExportedFields{}, "AAA"}, nil)
+	if err != nil {
+		t.Fatalf("Error: %s", err)
+	}
+
+	hash2, err = Hash(structWithoutHashableFields{structWithoutExportedFields{}, "BBB"}, nil)
+	if err != nil {
+		t.Fatalf("Error: %s", err)
+	}
+
+	if hash1 != hash2 {
+		t.Fatalf("Expecting same hash.")
+	}
+
+	type structWithOneHashableField struct {
+		structWithoutExportedFields
+		AnotherOne  string `hash:"ignore"`
+		PublicField string
+	}
+
+	hash1, err = Hash(structWithOneHashableField{structWithoutExportedFields{}, "AAA", "XXX"}, nil)
+	if err != nil {
+		t.Fatalf("Error: %s", err)
+	}
+
+	hash2, err = Hash(structWithOneHashableField{structWithoutExportedFields{}, "BBB", "XXX"}, nil)
+	if err != nil {
+		t.Fatalf("Error: %s", err)
+	}
+
+	if hash1 != hash2 {
+		t.Fatalf("Expecting same hash.")
+	}
+
+	hash3, err := Hash(structWithOneHashableField{structWithoutExportedFields{}, "BBB", "YYY"}, nil)
+	if err != nil {
+		t.Fatalf("Error: %s", err)
+	}
+
+	if hash1 == hash3 {
+		t.Fatalf("Expecting a different hash.")
+	}
+}
+
 type testIncludable struct {
 	Value  string
 	Ignore string
