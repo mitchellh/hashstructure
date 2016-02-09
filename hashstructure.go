@@ -182,8 +182,8 @@ func (w *walker) visit(v reflect.Value, opts *visitOpts) (uint64, error) {
 				return 0, err
 			}
 
-			h = hashUpdateUnordered(h, kh)
-			h = hashUpdateUnordered(h, vh)
+			fieldHash := hashUpdateOrdered(w.h, kh, vh)
+			h = hashUpdateUnordered(h, fieldHash)
 		}
 
 		return h, nil

@@ -75,6 +75,12 @@ func TestHash_equal(t *testing.T) {
 		},
 
 		{
+			map[string]interface{}{"1": "1"},
+			map[string]interface{}{"1": "1", "2": "2"},
+			false,
+		},
+
+		{
 			struct{ Fname, Lname string }{"foo", "bar"},
 			struct{ Fname, Lname string }{"bar", "foo"},
 			false,
@@ -118,11 +124,15 @@ func TestHash_equal(t *testing.T) {
 	}
 
 	for _, tc := range cases {
+		t.Logf("Hashing: %#v", tc.One)
 		one, err := Hash(tc.One, nil)
+		t.Logf("Result: %d", one)
 		if err != nil {
 			t.Fatalf("Failed to hash %#v: %s", tc.One, err)
 		}
+		t.Logf("Hashing: %#v", tc.Two)
 		two, err := Hash(tc.Two, nil)
+		t.Logf("Result: %d", two)
 		if err != nil {
 			t.Fatalf("Failed to hash %#v: %s", tc.Two, err)
 		}
