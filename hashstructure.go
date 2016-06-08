@@ -41,7 +41,7 @@ type HashOptions struct {
 //
 // The available tag values are:
 //
-//   * "ignore" - The field will be ignored and not affect the hash code.
+//   * "ignore" or "-" - The field will be ignored and not affect the hash code.
 //
 //   * "set" - The field will be treated as a set, where ordering doesn't
 //             affect the hash code. This only works for slices.
@@ -212,7 +212,7 @@ func (w *walker) visit(v reflect.Value, opts *visitOpts) (uint64, error) {
 				}
 
 				tag := fieldType.Tag.Get(w.tag)
-				if tag == "ignore" {
+				if tag == "ignore" || tag == "-" {
 					// Ignore this field
 					continue
 				}

@@ -150,9 +150,14 @@ func TestHash_equal(t *testing.T) {
 }
 
 func TestHash_equalIgnore(t *testing.T) {
-	type Test struct {
+	type Test1 struct {
 		Name string
 		UUID string `hash:"ignore"`
+	}
+
+	type Test2 struct {
+		Name string
+		UUID string `hash:"-"`
 	}
 
 	cases := []struct {
@@ -160,14 +165,26 @@ func TestHash_equalIgnore(t *testing.T) {
 		Match    bool
 	}{
 		{
-			Test{Name: "foo", UUID: "foo"},
-			Test{Name: "foo", UUID: "bar"},
+			Test1{Name: "foo", UUID: "foo"},
+			Test1{Name: "foo", UUID: "bar"},
 			true,
 		},
 
 		{
-			Test{Name: "foo", UUID: "foo"},
-			Test{Name: "foo", UUID: "foo"},
+			Test1{Name: "foo", UUID: "foo"},
+			Test1{Name: "foo", UUID: "foo"},
+			true,
+		},
+
+		{
+			Test2{Name: "foo", UUID: "foo"},
+			Test2{Name: "foo", UUID: "bar"},
+			true,
+		},
+
+		{
+			Test2{Name: "foo", UUID: "foo"},
+			Test2{Name: "foo", UUID: "foo"},
 			true,
 		},
 	}
