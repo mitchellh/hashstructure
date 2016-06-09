@@ -204,6 +204,88 @@ func TestHash_equalIgnore(t *testing.T) {
 			t.Fatalf("zero hash: %#v", tc.One)
 		}
 
+
+		// Compare
+		if (one == two) != tc.Match {
+			t.Fatalf("bad, expected: %#v\n\n%#v\n\n%#v", tc.Match, tc.One, tc.Two)
+		}
+	}
+}
+
+func TestHash_equalNil(t *testing.T) {
+	type Test struct {
+		Str   *string
+		Int   *int
+		Map   map[string]string
+		Slice []string
+	}
+
+	cases := []struct {
+		One, Two interface{}
+		ZeroNil  bool
+		Match    bool
+	}{
+		{
+			Test{
+				Str:   nil,
+				Int:   nil,
+				Map:   nil,
+				Slice: nil,
+			},
+			Test{
+				Str:   new(string),
+				Int:   new(int),
+				Map:   make(map[string]string),
+				Slice: make([]string, 0),
+			},
+			true,
+			true,
+		},
+		{
+			Test{
+				Str:   nil,
+				Int:   nil,
+				Map:   nil,
+				Slice: nil,
+			},
+			Test{
+				Str:   new(string),
+				Int:   new(int),
+				Map:   make(map[string]string),
+				Slice: make([]string, 0),
+			},
+			false,
+			false,
+		},
+		{
+			nil,
+			0,
+			true,
+			true,
+		},
+		{
+			nil,
+			0,
+			false,
+			true,
+		},
+	}
+
+	for _, tc := range cases {
+		one, err := Hash(tc.One, &HashOptions{ZeroNil: tc.ZeroNil})
+		if err != nil {
+			t.Fatalf("Failed to hash %#v: %s", tc.One, err)
+		}
+		two, err := Hash(tc.Two, &HashOptions{ZeroNil: tc.ZeroNil})
+		if err != nil {
+			t.Fatalf("Failed to hash %#v: %s", tc.Two, err)
+		}
+
+		// Zero is always wrong
+		if one == 0 {
+			t.Fatalf("zero hash: %#v", tc.One)
+		}
+
 		// Compare
 		if (one == two) != tc.Match {
 			t.Fatalf("bad, expected: %#v\n\n%#v\n\n%#v", tc.Match, tc.One, tc.Two)
