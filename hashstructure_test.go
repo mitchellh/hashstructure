@@ -1,6 +1,7 @@
 package hashstructure
 
 import (
+	"fmt"
 	"testing"
 )
 
@@ -121,31 +122,65 @@ func TestHash_equal(t *testing.T) {
 			},
 			true,
 		},
+
+		{
+			struct {
+				testFoo
+				Foo string
+			}{
+				Foo:     "bar",
+				testFoo: testFoo{Name: "baz"},
+			},
+			struct {
+				testFoo
+				Foo string
+			}{
+				Foo: "bar",
+			},
+			true,
+		},
+
+		{
+			struct {
+				Foo string
+			}{
+				Foo: "bar",
+			},
+			struct {
+				testFoo
+				Foo string
+			}{
+				Foo: "bar",
+			},
+			true,
+		},
 	}
 
-	for _, tc := range cases {
-		t.Logf("Hashing: %#v", tc.One)
-		one, err := Hash(tc.One, nil)
-		t.Logf("Result: %d", one)
-		if err != nil {
-			t.Fatalf("Failed to hash %#v: %s", tc.One, err)
-		}
-		t.Logf("Hashing: %#v", tc.Two)
-		two, err := Hash(tc.Two, nil)
-		t.Logf("Result: %d", two)
-		if err != nil {
-			t.Fatalf("Failed to hash %#v: %s", tc.Two, err)
-		}
+	for i, tc := range cases {
+		t.Run(fmt.Sprintf("%d", i), func(t *testing.T) {
+			t.Logf("Hashing: %#v", tc.One)
+			one, err := Hash(tc.One, nil)
+			t.Logf("Result: %d", one)
+			if err != nil {
+				t.Fatalf("Failed to hash %#v: %s", tc.One, err)
+			}
+			t.Logf("Hashing: %#v", tc.Two)
+			two, err := Hash(tc.Two, nil)
+			t.Logf("Result: %d", two)
+			if err != nil {
+				t.Fatalf("Failed to hash %#v: %s", tc.Two, err)
+			}
 
-		// Zero is always wrong
-		if one == 0 {
-			t.Fatalf("zero hash: %#v", tc.One)
-		}
+			// Zero is always wrong
+			if one == 0 {
+				t.Fatalf("zero hash: %#v", tc.One)
+			}
 
-		// Compare
-		if (one == two) != tc.Match {
-			t.Fatalf("bad, expected: %#v\n\n%#v\n\n%#v", tc.Match, tc.One, tc.Two)
-		}
+			// Compare
+			if (one == two) != tc.Match {
+				t.Fatalf("bad, expected: %#v\n\n%#v\n\n%#v", tc.Match, tc.One, tc.Two)
+			}
+		})
 	}
 }
 
@@ -203,7 +238,6 @@ func TestHash_equalIgnore(t *testing.T) {
 		if one == 0 {
 			t.Fatalf("zero hash: %#v", tc.One)
 		}
-
 
 		// Compare
 		if (one == two) != tc.Match {
