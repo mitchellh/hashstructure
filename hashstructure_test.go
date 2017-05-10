@@ -3,6 +3,7 @@ package hashstructure
 import (
 	"fmt"
 	"testing"
+	"time"
 )
 
 func TestHash_identity(t *testing.T) {
@@ -195,6 +196,17 @@ func TestHash_equalIgnore(t *testing.T) {
 		UUID string `hash:"-"`
 	}
 
+	type TestTime struct {
+		Name string
+		Time time.Time `hash:"string"`
+	}
+
+	type TestTime2 struct {
+		Name string
+		Time time.Time
+	}
+
+	now := time.Now()
 	cases := []struct {
 		One, Two interface{}
 		Match    bool
@@ -220,6 +232,21 @@ func TestHash_equalIgnore(t *testing.T) {
 		{
 			Test2{Name: "foo", UUID: "foo"},
 			Test2{Name: "foo", UUID: "foo"},
+			true,
+		},
+		{
+			TestTime{Name: "foo", Time: now},
+			TestTime{Name: "foo", Time: time.Time{}},
+			false,
+		},
+		{
+			TestTime{Name: "foo", Time: now},
+			TestTime{Name: "foo", Time: now},
+			true,
+		},
+		{
+			TestTime2{Name: "foo", Time: now},
+			TestTime2{Name: "foo", Time: time.Time{}},
 			true,
 		},
 	}

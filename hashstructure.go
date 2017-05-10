@@ -2,10 +2,15 @@ package hashstructure
 
 import (
 	"encoding/binary"
+	"errors"
 	"fmt"
 	"hash"
 	"hash/fnv"
 	"reflect"
+)
+
+var (
+	ErrNotStringer = errors.New("field tag set to string, but struct does not implement fmt.Stringer")
 )
 
 // HashOptions are options that are available for hashing.
@@ -27,8 +32,8 @@ type HashOptions struct {
 //
 // If opts is nil, then default options will be used. See HashOptions
 // for the default values. The same *HashOptions value cannot be used
-// concurrently. None of the values within a *HashOptions struct are 
-// safe to read/write while hashing is being done. 
+// concurrently. None of the values within a *HashOptions struct are
+// safe to read/write while hashing is being done.
 //
 // Notes on the value:
 //
@@ -51,6 +56,9 @@ type HashOptions struct {
 //
 //   * "set" - The field will be treated as a set, where ordering doesn't
 //             affect the hash code. This only works for slices.
+//
+//   * "string" - The field will be hashed as a string, only works when the
+//                field implements fmt.Stringer
 //
 func Hash(v interface{}, opts *HashOptions) (uint64, error) {
 	// Create default options
@@ -201,8 +209,8 @@ func (w *walker) visit(v reflect.Value, opts *visitOpts) (uint64, error) {
 		return h, nil
 
 	case reflect.Struct:
-		var include Includable
 		parent := v.Interface()
+		var include Includable
 		if impl, ok := parent.(Includable); ok {
 			include = impl
 		}
@@ -215,7 +223,7 @@ func (w *walker) visit(v reflect.Value, opts *visitOpts) (uint64, error) {
 
 		l := v.NumField()
 		for i := 0; i < l; i++ {
-			if v := v.Field(i); v.CanSet() || t.Field(i).Name != "_" {
+			if innerV := v.Field(i); v.CanSet() || t.Field(i).Name != "_" {
 				var f visitFlag
 				fieldType := t.Field(i)
 				if fieldType.PkgPath != "" {
@@ -229,9 +237,18 @@ func (w *walker) visit(v reflect.Value, opts *visitOpts) (uint64, error) {
 					continue
 				}
 
+				// if string is set, use the string value
+				if tag == "string" {
+					if impl, ok := innerV.Interface().(fmt.Stringer); ok {
+						innerV = reflect.ValueOf(impl.String())
+					} else {
+						return 0, ErrNotStringer
+					}
+				}
+
 				// Check if we implement includable and check it
 				if include != nil {
-					incl, err := include.HashInclude(fieldType.Name, v)
+					incl, err := include.HashInclude(fieldType.Name, innerV)
 					if err != nil {
 						return 0, err
 					}
@@ -250,7 +267,7 @@ func (w *walker) visit(v reflect.Value, opts *visitOpts) (uint64, error) {
 					return 0, err
 				}
 
-				vh, err := w.visit(v, &visitOpts{
+				vh, err := w.visit(innerV, &visitOpts{
 					Flags:       f,
 					Struct:      parent,
 					StructField: fieldType.Name,
