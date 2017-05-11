@@ -3,6 +3,7 @@ package hashstructure
 import (
 	"fmt"
 	"testing"
+	"time"
 )
 
 func TestHash_identity(t *testing.T) {
@@ -195,6 +196,17 @@ func TestHash_equalIgnore(t *testing.T) {
 		UUID string `hash:"-"`
 	}
 
+	type TestTime struct {
+		Name string
+		Time time.Time `hash:"string"`
+	}
+
+	type TestTime2 struct {
+		Name string
+		Time time.Time
+	}
+
+	now := time.Now()
 	cases := []struct {
 		One, Two interface{}
 		Match    bool
@@ -222,6 +234,21 @@ func TestHash_equalIgnore(t *testing.T) {
 			Test2{Name: "foo", UUID: "foo"},
 			true,
 		},
+		{
+			TestTime{Name: "foo", Time: now},
+			TestTime{Name: "foo", Time: time.Time{}},
+			false,
+		},
+		{
+			TestTime{Name: "foo", Time: now},
+			TestTime{Name: "foo", Time: now},
+			true,
+		},
+		{
+			TestTime2{Name: "foo", Time: now},
+			TestTime2{Name: "foo", Time: time.Time{}},
+			true,
+		},
 	}
 
 	for _, tc := range cases {
@@ -242,6 +269,54 @@ func TestHash_equalIgnore(t *testing.T) {
 		// Compare
 		if (one == two) != tc.Match {
 			t.Fatalf("bad, expected: %#v\n\n%#v\n\n%#v", tc.Match, tc.One, tc.Two)
+		}
+	}
+}
+
+func TestHash_stringTagError(t *testing.T) {
+	type Test1 struct {
+		Name        string
+		BrokenField string `hash:"string"`
+	}
+
+	type Test2 struct {
+		Name        string
+		BustedField int `hash:"string"`
+	}
+
+	type Test3 struct {
+		Name string
+		Time time.Time `hash:"string"`
+	}
+
+	cases := []struct {
+		Test  interface{}
+		Field string
+	}{
+		{
+			Test1{Name: "foo", BrokenField: "bar"},
+			"BrokenField",
+		},
+		{
+			Test2{Name: "foo", BustedField: 23},
+			"BustedField",
+		},
+		{
+			Test3{Name: "foo", Time: time.Now()},
+			"",
+		},
+	}
+
+	for _, tc := range cases {
+		_, err := Hash(tc.Test, nil)
+		if err != nil {
+			if ens, ok := err.(*ErrNotStringer); ok {
+				if ens.Field != tc.Field {
+					t.Fatalf("did not get expected field %#v: got %s wanted %s", tc.Test, ens.Field, tc.Field)
+				}
+			} else {
+				t.Fatalf("unknown error %#v: got %s", tc, err)
+			}
 		}
 	}
 }
