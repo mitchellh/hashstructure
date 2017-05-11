@@ -2,16 +2,21 @@ package hashstructure
 
 import (
 	"encoding/binary"
-	"errors"
 	"fmt"
 	"hash"
 	"hash/fnv"
 	"reflect"
 )
 
-var (
-	ErrNotStringer = errors.New("field tag set to string, but struct does not implement fmt.Stringer")
-)
+// ErrNotStringer is returned when there's an error with hash:"string"
+type ErrNotStringer struct {
+	Field string
+}
+
+// Error implements error for ErrNotStringer
+func (ens *ErrNotStringer) Error() string {
+	return fmt.Sprintf("hashstructure: %s has hash:\"string\" set, but does not implement fmt.Stringer", ens.Field)
+}
 
 // HashOptions are options that are available for hashing.
 type HashOptions struct {
@@ -242,7 +247,9 @@ func (w *walker) visit(v reflect.Value, opts *visitOpts) (uint64, error) {
 					if impl, ok := innerV.Interface().(fmt.Stringer); ok {
 						innerV = reflect.ValueOf(impl.String())
 					} else {
-						return 0, ErrNotStringer
+						return 0, &ErrNotStringer{
+							Field: v.Type().Field(i).Name,
+						}
 					}
 				}
 
