@@ -493,6 +493,48 @@ func TestHash_includable(t *testing.T) {
 	}
 }
 
+func TestHash_ignoreZeroValue(t *testing.T) {
+	cases := []struct {
+		IgnoreZeroValue bool
+	}{
+		{
+			IgnoreZeroValue: true,
+		},
+		{
+			IgnoreZeroValue: false,
+		},
+	}
+	structA := struct {
+		Foo string
+		Bar string
+	}{
+		Foo: "foo",
+		Bar: "bar",
+	}
+	structB := struct {
+		Foo string
+		Bar string
+		Baz string
+	}{
+		Foo: "foo",
+		Bar: "bar",
+	}
+
+	for _, tc := range cases {
+		hashA, err := Hash(structA, &HashOptions{IgnoreZeroValue: tc.IgnoreZeroValue})
+		if err != nil {
+			t.Fatalf("Failed to hash %#v: %s", structA, err)
+		}
+		hashB, err := Hash(structB, &HashOptions{IgnoreZeroValue: tc.IgnoreZeroValue})
+		if err != nil {
+			t.Fatalf("Failed to hash %#v: %s", structB, err)
+		}
+		if (hashA == hashB) != tc.IgnoreZeroValue {
+			t.Fatalf("bad, expected: %#v\n\n%#d\n\n%#d", tc.IgnoreZeroValue, hashA, hashB)
+		}
+	}
+}
+
 func TestHash_includableMap(t *testing.T) {
 	cases := []struct {
 		One, Two interface{}

@@ -31,6 +31,10 @@ type HashOptions struct {
 	// ZeroNil is flag determining if nil pointer should be treated equal
 	// to a zero value of pointed type. By default this is false.
 	ZeroNil bool
+
+	// IgnoreZeroValue is determining if zero value fields should be
+	// ignored for hash calculation.
+	IgnoreZeroValue bool
 }
 
 // Hash returns the hash value of an arbitrary value.
@@ -85,6 +89,7 @@ func Hash(v interface{}, opts *HashOptions) (uint64, error) {
 		h:       opts.Hasher,
 		tag:     opts.TagName,
 		zeronil: opts.ZeroNil,
+		ignorezerovalue: opts.IgnoreZeroValue,
 	}
 	return w.visit(reflect.ValueOf(v), nil)
 }
@@ -93,6 +98,7 @@ type walker struct {
 	h       hash.Hash64
 	tag     string
 	zeronil bool
+	ignorezerovalue bool
 }
 
 type visitOpts struct {
@@ -229,6 +235,7 @@ func (w *walker) visit(v reflect.Value, opts *visitOpts) (uint64, error) {
 		l := v.NumField()
 		for i := 0; i < l; i++ {
 			if innerV := v.Field(i); v.CanSet() || t.Field(i).Name != "_" {
+
 				var f visitFlag
 				fieldType := t.Field(i)
 				if fieldType.PkgPath != "" {
@@ -239,6 +246,11 @@ func (w *walker) visit(v reflect.Value, opts *visitOpts) (uint64, error) {
 				tag := fieldType.Tag.Get(w.tag)
 				if tag == "ignore" || tag == "-" {
 					// Ignore this field
+					continue
+				}
+
+				zeroVal := reflect.Zero(reflect.TypeOf(innerV.Interface())).Interface()
+				if w.ignorezerovalue && reflect.DeepEqual(innerV.Interface(), zeroVal) {
 					continue
 				}
 
