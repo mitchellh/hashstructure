@@ -104,7 +104,19 @@ type visitOpts struct {
 	StructField string
 }
 
+var hashMethod = reflect.FuncOf(
+	[]reflect.Type{},
+	[]reflect.Type{reflect.TypeOf(uint64(0))},
+	false)
+
 func (w *walker) visit(v reflect.Value, opts *visitOpts) (uint64, error) {
+
+	// Call method Hash() if any
+	m := v.MethodByName("Hash")
+	if m.IsValid() && m.Type() == hashMethod {
+		return m.Call([]reflect.Value{})[0].Uint(), nil
+	}
+
 	t := reflect.TypeOf(0)
 
 	// Loop since these can be wrapped in multiple layers of pointers
