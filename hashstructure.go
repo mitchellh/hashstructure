@@ -104,7 +104,7 @@ type visitOpts struct {
 	StructField string
 }
 
-var hashMethod = reflect.FuncOf(
+var hashMethod reflect.Type = reflect.FuncOf(
 	[]reflect.Type{},
 	[]reflect.Type{reflect.TypeOf(uint64(0))},
 	false)
