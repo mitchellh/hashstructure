@@ -211,6 +211,8 @@ func (w *walker) visit(v reflect.Value, opts *visitOpts) (uint64, error) {
 			h = hashUpdateUnordered(h, fieldHash)
 		}
 
+		h = hashFinishUnordered(w.h, h)
+
 		return h, nil
 
 	case reflect.Struct:
@@ -286,6 +288,8 @@ func (w *walker) visit(v reflect.Value, opts *visitOpts) (uint64, error) {
 				fieldHash := hashUpdateOrdered(w.h, kh, vh)
 				h = hashUpdateUnordered(h, fieldHash)
 			}
+
+			h = hashFinishUnordered(w.h, h)
 		}
 
 		return h, nil
@@ -311,6 +315,10 @@ func (w *walker) visit(v reflect.Value, opts *visitOpts) (uint64, error) {
 			} else {
 				h = hashUpdateOrdered(w.h, h, current)
 			}
+		}
+
+		if set {
+			h = hashFinishUnordered(w.h, h)
 		}
 
 		return h, nil
@@ -347,6 +355,32 @@ func hashUpdateOrdered(h hash.Hash64, a, b uint64) uint64 {
 
 func hashUpdateUnordered(a, b uint64) uint64 {
 	return a ^ b
+}
+
+// After mixing a group of unique hashes with hashUpdateUnordered, it's always
+// necessary to call hashFinishUnordered. Why? Because hashUpdateUnordered
+// is a simple XOR, and calling hashUpdateUnordered on hashes produced by
+// hashUpdateUnordered can effectively cancel out a previous change to the hash
+// result if the same hash value appears later on. For example, consider:
+//
+//   hashUpdateUnordered(hashUpdateUnordered("A", "B"), hashUpdateUnordered("A", "C")) =
+//   H("A") ^ H("B")) ^ (H("A") ^ H("C")) =
+//   (H("A") ^ H("A")) ^ (H("B") ^ H(C)) =
+//   H(B) ^ H(C) =
+//   hashUpdateUnordered(hashUpdateUnordered("Z", "B"), hashUpdateUnordered("Z", "C"))
+//
+// hashFinishUnordered "hardens" the result, so that encountering partially
+// overlapping input data later on in a different context won't cancel out.
+func hashFinishUnordered(h hash.Hash64, a uint64) uint64 {
+	h.Reset()
+
+	// We just panic if the writes fail
+	e1 := binary.Write(h, binary.LittleEndian, a)
+	if e1 != nil {
+		panic(e1)
+	}
+
+	return h.Sum64()
 }
 
 // visitFlag is used as a bitmask for affecting visit behavior
