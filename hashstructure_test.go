@@ -2,6 +2,7 @@ package hashstructure
 
 import (
 	"fmt"
+	"strings"
 	"testing"
 	"time"
 )
@@ -120,6 +121,46 @@ func TestHash_equal(t *testing.T) {
 			}{
 				Foo:        "bar",
 				unexported: "bang",
+			},
+			true,
+		},
+
+		{
+			struct {
+				Foo        string
+				unexported string
+				hash       uint64
+			}{
+				Foo:        "bar",
+				unexported: "baz",
+				hash:       10,
+			},
+			struct {
+				Foo        string
+				unexported string
+				hash       uint64
+			}{
+				Foo:        "bar",
+				unexported: "bang",
+				hash:       20,
+			},
+			false,
+		},
+
+		{
+			struct {
+				Foo  string
+				hash uint64
+			}{
+				Foo:  "bar",
+				hash: 10,
+			},
+			struct {
+				Foo  string
+				hash uint64
+			}{
+				Foo:  "baz",
+				hash: 10,
 			},
 			true,
 		},
@@ -539,6 +580,56 @@ func TestHash_includableMap(t *testing.T) {
 	}
 }
 
+func TestHash_hashable(t *testing.T) {
+	cases := []struct {
+		One, Two interface{}
+		Match    bool
+	}{
+		{
+			testHashable{Value: "foo"},
+			testHashable{Value: "foo"},
+			true,
+		},
+
+		{
+			testHashable{Value: "foo1"},
+			testHashable{Value: "foo2"},
+			true,
+		},
+		{
+			testHashable{Value: "foo"},
+			testHashable{Value: "bar"},
+			false,
+		},
+		{
+			testHashable{Value: "nofoo"},
+			testHashable{Value: "bar"},
+			true,
+		},
+	}
+
+	for _, tc := range cases {
+		one, err := Hash(tc.One, nil)
+		if err != nil {
+			t.Fatalf("Failed to hash %#v: %s", tc.One, err)
+		}
+		two, err := Hash(tc.Two, nil)
+		if err != nil {
+			t.Fatalf("Failed to hash %#v: %s", tc.Two, err)
+		}
+
+		// Zero is always wrong
+		if one == 0 {
+			t.Fatalf("zero hash: %#v", tc.One)
+		}
+
+		// Compare
+		if (one == two) != tc.Match {
+			t.Fatalf("bad, expected: %#v\n\n%#v\n\n%#v", tc.Match, tc.One, tc.Two)
+		}
+	}
+}
+
 type testIncludable struct {
 	Value  string
 	Ignore string
@@ -562,4 +653,15 @@ func (t testIncludableMap) HashIncludeMap(field string, k, v interface{}) (bool,
 	}
 
 	return true, nil
+}
+
+type testHashable struct {
+	Value string
+}
+
+func (t testHashable) Hash() uint64 {
+	if strings.HasPrefix(t.Value, "foo") {
+		return 500
+	}
+	return 100
 }

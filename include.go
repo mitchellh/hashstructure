@@ -13,3 +13,8 @@ type Includable interface {
 type IncludableMap interface {
 	HashIncludeMap(field string, k, v interface{}) (bool, error)
 }
+
+// Hashable is an interface that can optionally be implemented by a struct to override the hash generation.
+type Hashable interface {
+	Hash() uint64
+}
