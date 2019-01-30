@@ -81,6 +81,10 @@ type HashOptions struct {
 //                field implements fmt.Stringer
 //
 func Hash(v interface{}, opts *HashOptions) (uint64, error) {
+	if impl, ok := v.(Hashable); ok {
+		return impl.Hash(), nil
+	}
+
 	// Create default options
 	if opts == nil {
 		opts = &HashOptions{}
