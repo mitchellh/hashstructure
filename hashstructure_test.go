@@ -66,6 +66,8 @@ func TestHash_equal(t *testing.T) {
 	type testFoo struct{ Name string }
 	type testBar struct{ Name string }
 
+	now := time.Now()
+
 	cases := []struct {
 		One, Two interface{}
 		Match    bool
@@ -153,6 +155,12 @@ func TestHash_equal(t *testing.T) {
 			}{
 				Foo: "bar",
 			},
+			true,
+		},
+		{
+			now, // contains monotonic clock
+			time.Date(now.Year(), now.Month(), now.Day(), now.Hour(),
+				now.Minute(), now.Second(), now.Nanosecond(), now.Location()), // does not contain monotonic clock
 			true,
 		},
 	}
@@ -247,6 +255,13 @@ func TestHash_equalIgnore(t *testing.T) {
 		{
 			TestTime2{Name: "foo", Time: now},
 			TestTime2{Name: "foo", Time: time.Time{}},
+			false,
+		},
+		{
+			TestTime2{Name: "foo", Time: now},
+			TestTime2{Name: "foo", Time: time.Date(now.Year(), now.Month(), now.Day(), now.Hour(),
+				now.Minute(), now.Second(), now.Nanosecond(), now.Location()),
+			},
 			true,
 		},
 	}
