@@ -249,9 +249,11 @@ func (w *walker) visit(v reflect.Value, opts *visitOpts) (uint64, error) {
 					continue
 				}
 
-				zeroVal := reflect.Zero(reflect.TypeOf(innerV.Interface())).Interface()
-				if w.ignorezerovalue && reflect.DeepEqual(innerV.Interface(), zeroVal) {
-					continue
+				if w.ignorezerovalue {
+					zeroVal := reflect.Zero(reflect.TypeOf(innerV.Interface())).Interface()
+					if innerV.Interface() == zeroVal {
+						continue
+					}
 				}
 
 				// if string is set, use the string value

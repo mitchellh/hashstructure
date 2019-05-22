@@ -530,7 +530,7 @@ func TestHash_ignoreZeroValue(t *testing.T) {
 			t.Fatalf("Failed to hash %#v: %s", structB, err)
 		}
 		if (hashA == hashB) != tc.IgnoreZeroValue {
-			t.Fatalf("bad, expected: %#v\n\n%#d\n\n%#d", tc.IgnoreZeroValue, hashA, hashB)
+			t.Fatalf("bad, expected: %#v\n\n%d\n\n%d", tc.IgnoreZeroValue, hashA, hashB)
 		}
 	}
 }
