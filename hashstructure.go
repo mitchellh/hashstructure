@@ -31,6 +31,17 @@ type HashOptions struct {
 	// ZeroNil is flag determining if nil pointer should be treated equal
 	// to a zero value of pointed type. By default this is false.
 	ZeroNil bool
+
+	// SlicesAsSets assumes that a `set` tag is always present for slices.
+	// Default is false (in which case the tag is used instead)
+	SlicesAsSets bool
+
+	// UseStringer will attempt to use fmt.Stringer aways. If the struct
+	// doesn't implement fmt.Stringer, it'll fall back to trying usual tricks.
+	// If this is true, and the "string" tag is also set, the tag takes
+	// precedense (meaning that if the type doesn't implement fmt.Stringer, we
+	// panic)
+	UseStringer bool
 }
 
 // Hash returns the hash value of an arbitrary value.
@@ -82,17 +93,21 @@ func Hash(v interface{}, opts *HashOptions) (uint64, error) {
 
 	// Create our walker and walk the structure
 	w := &walker{
-		h:       opts.Hasher,
-		tag:     opts.TagName,
-		zeronil: opts.ZeroNil,
+		h:        opts.Hasher,
+		tag:      opts.TagName,
+		zeronil:  opts.ZeroNil,
+		sets:     opts.SlicesAsSets,
+		stringer: opts.UseStringer,
 	}
 	return w.visit(reflect.ValueOf(v), nil)
 }
 
 type walker struct {
-	h       hash.Hash64
-	tag     string
-	zeronil bool
+	h        hash.Hash64
+	tag      string
+	zeronil  bool
+	sets     bool
+	stringer bool
 }
 
 type visitOpts struct {
@@ -253,6 +268,14 @@ func (w *walker) visit(v reflect.Value, opts *visitOpts) (uint64, error) {
 					}
 				}
 
+				// if Use Stringer option is set, attempt that
+				if w.stringer {
+					if impl, ok := innerV.Interface().(fmt.Stringer); ok {
+						innerV = reflect.ValueOf(impl.String())
+						continue
+					}
+				}
+
 				// Check if we implement includable and check it
 				if include != nil {
 					incl, err := include.HashInclude(fieldType.Name, innerV)
@@ -306,7 +329,7 @@ func (w *walker) visit(v reflect.Value, opts *visitOpts) (uint64, error) {
 				return 0, err
 			}
 
-			if set {
+			if set || w.sets {
 				h = hashUpdateUnordered(h, current)
 			} else {
 				h = hashUpdateOrdered(w.h, h, current)
