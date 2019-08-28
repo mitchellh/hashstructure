@@ -103,10 +103,11 @@ func Hash(v interface{}, opts *HashOptions) (uint64, error) {
 }
 
 type walker struct {
-	h       hash.Hash64
-	tag     string
-	zeronil bool
-	sets    bool
+	h        hash.Hash64
+	tag      string
+	zeronil  bool
+	sets     bool
+	stringer bool
 }
 
 type visitOpts struct {
@@ -268,7 +269,7 @@ func (w *walker) visit(v reflect.Value, opts *visitOpts) (uint64, error) {
 				}
 
 				// if Use Stringer option is set, attempt that
-				if opts.stringer {
+				if w.stringer {
 					if impl, ok := innerV.Interface().(fmt.Stringer); ok {
 						innerV = reflect.ValueOf(impl.String())
 						continue
@@ -328,7 +329,7 @@ func (w *walker) visit(v reflect.Value, opts *visitOpts) (uint64, error) {
 				return 0, err
 			}
 
-			if set || opts.sets {
+			if set || w.sets {
 				h = hashUpdateUnordered(h, current)
 			} else {
 				h = hashUpdateOrdered(w.h, h, current)
