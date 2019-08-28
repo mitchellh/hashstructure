@@ -28,12 +28,12 @@ sending data across the network, caching values locally (de-dup), and so on.
 Standard `go get`:
 
 ```
-$ go get github.com/mitchellh/hashstructure
+$ go get github.com/adamhassel/hashstructure
 ```
 
 ## Usage & Example
 
-For usage and examples see the [Godoc](http://godoc.org/github.com/mitchellh/hashstructure).
+For usage and examples see the [Godoc](http://godoc.org/github.com/adamhassel/hashstructure).
 
 A quick code example is shown below:
 
