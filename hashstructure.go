@@ -272,7 +272,6 @@ func (w *walker) visit(v reflect.Value, opts *visitOpts) (uint64, error) {
 				if w.stringer {
 					if impl, ok := innerV.Interface().(fmt.Stringer); ok {
 						innerV = reflect.ValueOf(impl.String())
-						continue
 					}
 				}
 
