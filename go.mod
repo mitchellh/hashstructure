@@ -1,1 +1,1 @@
-module github.com/mitchellh/hashstructure
+module github.com/adamhassel/hashstructure
