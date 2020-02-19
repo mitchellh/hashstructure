@@ -1,4 +1,4 @@
-# hashstructure [![GoDoc](https://godoc.org/github.com/mitchellh/hashstructure?status.svg)](https://godoc.org/github.com/mitchellh/hashstructure)
+# hashstructure [![GoDoc](https://godoc.org/github.com/adamhassel/hashstructure?status.svg)](https://godoc.org/github.com/adamhassel/hashstructure)
 
 hashstructure is a Go library for creating a unique hash value
 for arbitrary values in Go.
