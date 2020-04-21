@@ -6,6 +6,292 @@ import (
 	"time"
 )
 
+func TestNesting(t *testing.T) {
+	type UntaggedStruct struct {
+		String string
+		Int    int
+		Map    map[string]string
+		Slice  []string
+	}
+	type Test struct {
+		HashedString    string `tag:"hashme"`
+		NotHashedString string
+
+		HashedInt    int `tag:"hashme"`
+		NotHashedInt int
+
+		HashedMap    map[string]string `tag:"hashme"`
+		NotHashedMap map[string]string
+
+		HashedSlice    []string `tag:"hashme"`
+		NotHashedSlice []string
+
+		HashedStructSlice    []UntaggedStruct `tag:"hashme"`
+		NotHashedStructSlice []UntaggedStruct
+
+		HashedStruct    UntaggedStruct `tag:"hashme"`
+		NotHashedStruct UntaggedStruct
+	}
+
+	options := HashOptions{
+		TagOnly: true,
+		TagName: "tag",
+	}
+
+	cases := []struct {
+		struct1, struct2 Test
+		equal            bool
+	}{
+		{
+			struct1: Test{},
+			struct2: Test{},
+			equal:   true,
+		},
+		{
+			struct1: Test{},
+			struct2: Test{
+				HashedString: "hash1",
+			},
+			equal: false,
+		},
+		{
+			struct1: Test{
+				HashedString: "hash1",
+			},
+			struct2: Test{
+				HashedString: "hash1",
+			},
+			equal: true,
+		},
+		{
+			struct1: Test{
+				HashedString: "hash1",
+			},
+			struct2: Test{
+				HashedString:    "hash1",
+				NotHashedString: "hash2",
+			},
+			equal: true,
+		},
+		{
+			struct1: Test{},
+			struct2: Test{
+				HashedInt: 10,
+			},
+			equal: false,
+		},
+		{
+			struct1: Test{
+				HashedInt: 10,
+			},
+			struct2: Test{
+				HashedInt: 10,
+			},
+			equal: true,
+		},
+		{
+			struct1: Test{
+				HashedInt: 10,
+			},
+			struct2: Test{
+				HashedInt:    10,
+				NotHashedInt: 15,
+			},
+			equal: true,
+		},
+		{
+			struct1: Test{},
+			struct2: Test{
+				HashedMap: map[string]string{
+					"h1": "h2",
+				},
+			},
+			equal: false,
+		},
+		{
+			struct1: Test{
+				HashedMap: map[string]string{
+					"h1": "h2",
+					"h3": "h4",
+				},
+			},
+			struct2: Test{
+				HashedMap: map[string]string{
+					"h1": "h2",
+					"h3": "h4",
+				},
+			},
+			equal: true,
+		},
+		{
+			struct1: Test{
+				HashedMap: map[string]string{
+					"h1": "h2",
+					"h3": "h4",
+				},
+			},
+			struct2: Test{
+				HashedMap: map[string]string{
+					"h1":    "h2",
+					"diff1": "diff2",
+				},
+			},
+			equal: false,
+		},
+		{
+			struct1: Test{
+				HashedMap: map[string]string{
+					"h1": "h2",
+					"h3": "h4",
+				},
+			},
+			struct2: Test{
+				HashedMap: map[string]string{
+					"h1": "h2",
+					"h3": "h4",
+				},
+				NotHashedMap: map[string]string{
+					"h1": "h2",
+				},
+			},
+			equal: true,
+		},
+		{
+			struct1: Test{},
+			struct2: Test{
+				HashedStructSlice: []UntaggedStruct{
+					{
+						String: "string",
+					},
+				},
+			},
+			equal: false,
+		},
+		{
+			struct1: Test{
+				HashedStructSlice: []UntaggedStruct{
+					{
+						String: "string",
+					},
+				},
+			},
+			struct2: Test{
+				HashedStructSlice: []UntaggedStruct{
+					{
+						String: "string",
+					},
+				},
+			},
+			equal: true,
+		},
+		{
+			struct1: Test{
+				HashedStructSlice: []UntaggedStruct{
+					{
+						String: "string",
+					},
+				},
+			},
+			struct2: Test{
+				HashedStructSlice: []UntaggedStruct{
+					{
+						String: "string2",
+					},
+				},
+			},
+			equal: false,
+		},
+		{
+			struct1: Test{
+				HashedStructSlice: []UntaggedStruct{
+					{
+						String: "string",
+					},
+				},
+			},
+			struct2: Test{
+				HashedStructSlice: []UntaggedStruct{
+					{
+						String: "string",
+					},
+				},
+				NotHashedStructSlice: []UntaggedStruct{
+					{
+						String: "extrastring",
+					},
+				},
+			},
+			equal: true,
+		},
+		{
+			struct1: Test{},
+			struct2: Test{
+				HashedStruct: UntaggedStruct{
+					String: "string",
+				},
+			},
+			equal: false,
+		},
+		{
+			struct1: Test{
+				HashedStruct: UntaggedStruct{
+					String: "string",
+				},
+			},
+			struct2: Test{
+				HashedStruct: UntaggedStruct{
+					String: "string",
+				},
+			},
+			equal: true,
+		},
+		{
+			struct1: Test{
+				HashedStruct: UntaggedStruct{
+					String: "string",
+				},
+			},
+			struct2: Test{
+				HashedStruct: UntaggedStruct{
+					String: "string2",
+				},
+			},
+			equal: false,
+		},
+		{
+			struct1: Test{
+				HashedStruct: UntaggedStruct{
+					String: "string",
+				},
+			},
+			struct2: Test{
+				HashedStruct: UntaggedStruct{
+					String: "string",
+				},
+				NotHashedStruct: UntaggedStruct{
+					String: "string2",
+				},
+			},
+			equal: true,
+		},
+	}
+	for _, c := range cases {
+		t.Run(t.Name(), func(t *testing.T) {
+			h1, err := Hash(c.struct1, &options)
+			if err != nil {
+				t.Fail()
+			}
+			h2, err := Hash(c.struct2, &options)
+			if err != nil {
+				t.Fail()
+			}
+			if c.equal != (h1 == h2) {
+				t.Fail()
+			}
+		})
+	}
+}
+
 func TestHash_identity(t *testing.T) {
 	cases := []interface{}{
 		nil,
@@ -38,7 +324,7 @@ func TestHash_identity(t *testing.T) {
 		// We run the test 100 times to try to tease out variability
 		// in the runtime in terms of ordering.
 		valuelist := make([]uint64, 100)
-		for i, _ := range valuelist {
+		for i := range valuelist {
 			v, err := Hash(tc, nil)
 			if err != nil {
 				t.Fatalf("Error: %s\n\n%#v", err, tc)

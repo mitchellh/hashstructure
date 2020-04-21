@@ -28,6 +28,11 @@ type HashOptions struct {
 	// By default this is "hash".
 	TagName string
 
+	// TagOnly specifies that we only want to hash the data that either has
+	// the tag name directly applied with a valid value OR if a parent has the
+	// tag
+	TagOnly bool
+
 	// ZeroNil is flag determining if nil pointer should be treated equal
 	// to a zero value of pointed type. By default this is false.
 	ZeroNil bool
@@ -84,14 +89,16 @@ func Hash(v interface{}, opts *HashOptions) (uint64, error) {
 	w := &walker{
 		h:       opts.Hasher,
 		tag:     opts.TagName,
+		tagOnly: opts.TagOnly,
 		zeronil: opts.ZeroNil,
 	}
-	return w.visit(reflect.ValueOf(v), nil)
+	return w.visit(reflect.ValueOf(v), &visitOpts{})
 }
 
 type walker struct {
 	h       hash.Hash64
 	tag     string
+	tagOnly bool
 	zeronil bool
 }
 
@@ -102,6 +109,21 @@ type visitOpts struct {
 	// Information about the struct containing this field
 	Struct      interface{}
 	StructField string
+	Tag         string
+}
+
+func (w *walker) hasRequiredTag(tag string) bool {
+	if !w.tagOnly {
+		return true
+	}
+	return tag != "" && tag != "ignore" && tag != "-"
+}
+
+func tagOrParent(tag string, opts *visitOpts) string {
+	if tag != "" {
+		return tag
+	}
+	return opts.Tag
 }
 
 func (w *walker) visit(v reflect.Value, opts *visitOpts) (uint64, error) {
@@ -153,6 +175,10 @@ func (w *walker) visit(v reflect.Value, opts *visitOpts) (uint64, error) {
 
 	// We can shortcut numeric values by directly binary writing them
 	if k >= reflect.Int && k <= reflect.Complex64 {
+		if !w.hasRequiredTag(opts.Tag) {
+			return 0, nil
+		}
+
 		// A direct hash calculation
 		w.h.Reset()
 		err := binary.Write(w.h, binary.LittleEndian, v.Interface())
@@ -164,7 +190,9 @@ func (w *walker) visit(v reflect.Value, opts *visitOpts) (uint64, error) {
 		var h uint64
 		l := v.Len()
 		for i := 0; i < l; i++ {
-			current, err := w.visit(v.Index(i), nil)
+			current, err := w.visit(v.Index(i), &visitOpts{
+				Tag: opts.Tag,
+			})
 			if err != nil {
 				return 0, err
 			}
@@ -197,14 +225,23 @@ func (w *walker) visit(v reflect.Value, opts *visitOpts) (uint64, error) {
 					continue
 				}
 			}
-
-			kh, err := w.visit(k, nil)
+			kh, err := w.visit(k, &visitOpts{
+				Tag: opts.Tag,
+			})
 			if err != nil {
 				return 0, err
 			}
-			vh, err := w.visit(v, nil)
+			if kh == 0 {
+				continue
+			}
+			vh, err := w.visit(v, &visitOpts{
+				Tag: opts.Tag,
+			})
 			if err != nil {
 				return 0, err
+			}
+			if vh == 0 {
+				continue
 			}
 
 			fieldHash := hashUpdateOrdered(w.h, kh, vh)
@@ -221,7 +258,9 @@ func (w *walker) visit(v reflect.Value, opts *visitOpts) (uint64, error) {
 		}
 
 		t := v.Type()
-		h, err := w.visit(reflect.ValueOf(t.Name()), nil)
+		h, err := w.visit(reflect.ValueOf(t.Name()), &visitOpts{
+			Tag: opts.Tag,
+		})
 		if err != nil {
 			return 0, err
 		}
@@ -269,7 +308,9 @@ func (w *walker) visit(v reflect.Value, opts *visitOpts) (uint64, error) {
 					f |= visitFlagSet
 				}
 
-				kh, err := w.visit(reflect.ValueOf(fieldType.Name), nil)
+				kh, err := w.visit(reflect.ValueOf(fieldType.Name), &visitOpts{
+					Tag: tagOrParent(tag, opts),
+				})
 				if err != nil {
 					return 0, err
 				}
@@ -278,6 +319,7 @@ func (w *walker) visit(v reflect.Value, opts *visitOpts) (uint64, error) {
 					Flags:       f,
 					Struct:      parent,
 					StructField: fieldType.Name,
+					Tag:         tagOrParent(tag, opts),
 				})
 				if err != nil {
 					return 0, err
@@ -301,9 +343,14 @@ func (w *walker) visit(v reflect.Value, opts *visitOpts) (uint64, error) {
 		}
 		l := v.Len()
 		for i := 0; i < l; i++ {
-			current, err := w.visit(v.Index(i), nil)
+			current, err := w.visit(v.Index(i), &visitOpts{
+				Tag: opts.Tag,
+			})
 			if err != nil {
 				return 0, err
+			}
+			if current == 0 {
+				continue
 			}
 
 			if set {
@@ -316,6 +363,9 @@ func (w *walker) visit(v reflect.Value, opts *visitOpts) (uint64, error) {
 		return h, nil
 
 	case reflect.String:
+		if !w.hasRequiredTag(opts.Tag) {
+			return 0, nil
+		}
 		// Directly hash
 		w.h.Reset()
 		_, err := w.h.Write([]byte(v.String()))
