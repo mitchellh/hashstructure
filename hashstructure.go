@@ -288,6 +288,8 @@ func (w *walker) visit(v reflect.Value, opts *visitOpts) (uint64, error) {
 			}
 		}
 
+		h = hashUpdateOrdered(w.h, h, h)
+
 		return h, nil
 
 	case reflect.Slice:

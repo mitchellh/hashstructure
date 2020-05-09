@@ -66,6 +66,11 @@ func TestHash_equal(t *testing.T) {
 	type testFoo struct{ Name string }
 	type testBar struct{ Name string }
 
+	type testItem struct {
+		Name string
+		Prio int
+	}
+
 	cases := []struct {
 		One, Two interface{}
 		Match    bool
@@ -98,6 +103,11 @@ func TestHash_equal(t *testing.T) {
 			struct{ Lname, Fname string }{"foo", "bar"},
 			struct{ Fname, Lname string }{"bar", "foo"},
 			true,
+		},
+		{
+			[]testItem{{"foo", 1}, {"bar", 2}},
+			[]testItem{{"foo", 2}, {"bar", 1}},
+			false,
 		},
 
 		{
@@ -562,4 +572,32 @@ func (t testIncludableMap) HashIncludeMap(field string, k, v interface{}) (bool,
 	}
 
 	return true, nil
+}
+
+func TestHash_set(t *testing.T) {
+	type Item struct {
+		Name     string
+		Priority int
+	}
+
+	type BitwiseXORTest struct {
+		Name  string
+		Items []Item `hash:"set"`
+	}
+
+	testCase1 := BitwiseXORTest{
+		"testCase",
+		[]Item{{"FirstItem", 1}, {"SecondItem", 2}},
+	}
+	testCase2 := BitwiseXORTest{
+		"testCase",
+		[]Item{{"SecondItem", 1}, {"FirstItem", 2}},
+	}
+
+	hash1, _ := Hash(testCase1, nil)
+	hash2, _ := Hash(testCase2, nil)
+
+	if hash1 == hash2 {
+		t.Fatal("hashes shouldn't match")
+	}
 }
