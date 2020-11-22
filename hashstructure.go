@@ -247,6 +247,7 @@ func (w *walker) visit(v reflect.Value, opts *visitOpts) (uint64, error) {
 			h = hashUpdateUnordered(h, fieldHash)
 		}
 
+		// Important: read the docs for hashFinishUnordered
 		h = hashFinishUnordered(w.h, h)
 
 		return h, nil
@@ -285,7 +286,6 @@ func (w *walker) visit(v reflect.Value, opts *visitOpts) (uint64, error) {
 		l := v.NumField()
 		for i := 0; i < l; i++ {
 			if innerV := v.Field(i); v.CanSet() || t.Field(i).Name != "_" {
-
 				var f visitFlag
 				fieldType := t.Field(i)
 				if fieldType.PkgPath != "" {
@@ -353,6 +353,7 @@ func (w *walker) visit(v reflect.Value, opts *visitOpts) (uint64, error) {
 				h = hashUpdateUnordered(h, fieldHash)
 			}
 
+			// Important: read the docs for hashFinishUnordered
 			h = hashFinishUnordered(w.h, h)
 		}
 
@@ -382,6 +383,7 @@ func (w *walker) visit(v reflect.Value, opts *visitOpts) (uint64, error) {
 		}
 
 		if set {
+			// Important: read the docs for hashFinishUnordered
 			h = hashFinishUnordered(w.h, h)
 		}
 
