@@ -32,6 +32,10 @@ type HashOptions struct {
 	// to a zero value of pointed type. By default this is false.
 	ZeroNil bool
 
+	// IgnoreZeroValue is determining if zero value fields should be
+	// ignored for hash calculation.
+	IgnoreZeroValue bool
+
 	// SlicesAsSets assumes that a `set` tag is always present for slices.
 	// Default is false (in which case the tag is used instead)
 	SlicesAsSets bool
@@ -93,21 +97,23 @@ func Hash(v interface{}, opts *HashOptions) (uint64, error) {
 
 	// Create our walker and walk the structure
 	w := &walker{
-		h:        opts.Hasher,
-		tag:      opts.TagName,
-		zeronil:  opts.ZeroNil,
-		sets:     opts.SlicesAsSets,
-		stringer: opts.UseStringer,
+		h:               opts.Hasher,
+		tag:             opts.TagName,
+		zeronil:         opts.ZeroNil,
+		ignorezerovalue: opts.IgnoreZeroValue,
+		sets:            opts.SlicesAsSets,
+		stringer:        opts.UseStringer,
 	}
 	return w.visit(reflect.ValueOf(v), nil)
 }
 
 type walker struct {
-	h        hash.Hash64
-	tag      string
-	zeronil  bool
-	sets     bool
-	stringer bool
+	h               hash.Hash64
+	tag             string
+	zeronil         bool
+	ignorezerovalue bool
+	sets            bool
+	stringer        bool
 }
 
 type visitOpts struct {
@@ -248,6 +254,7 @@ func (w *walker) visit(v reflect.Value, opts *visitOpts) (uint64, error) {
 		l := v.NumField()
 		for i := 0; i < l; i++ {
 			if innerV := v.Field(i); v.CanSet() || t.Field(i).Name != "_" {
+
 				var f visitFlag
 				fieldType := t.Field(i)
 				if fieldType.PkgPath != "" {
@@ -259,6 +266,13 @@ func (w *walker) visit(v reflect.Value, opts *visitOpts) (uint64, error) {
 				if tag == "ignore" || tag == "-" {
 					// Ignore this field
 					continue
+				}
+
+				if w.ignorezerovalue {
+					zeroVal := reflect.Zero(reflect.TypeOf(innerV.Interface())).Interface()
+					if innerV.Interface() == zeroVal {
+						continue
+					}
 				}
 
 				// if string is set, use the string value
