@@ -14,6 +14,7 @@ func (ens *ErrNotStringer) Error() string {
 	return fmt.Sprintf("hashstructure: %s has hash:\"string\" set, but does not implement fmt.Stringer", ens.Field)
 }
 
+// ErrFormat is returned when an invalid format is given to the Hash function.
 type ErrFormat struct{}
 
 func (*ErrFormat) Error() string {
