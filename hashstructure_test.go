@@ -7,6 +7,8 @@ import (
 	"time"
 )
 
+var testFormat = FormatV2
+
 func TestHash_identity(t *testing.T) {
 	cases := []interface{}{
 		nil,
@@ -40,7 +42,7 @@ func TestHash_identity(t *testing.T) {
 		// in the runtime in terms of ordering.
 		valuelist := make([]uint64, 100)
 		for i := range valuelist {
-			v, err := Hash(tc, nil)
+			v, err := Hash(tc, testFormat, nil)
 			if err != nil {
 				t.Fatalf("Error: %s\n\n%#v", err, tc)
 			}
@@ -169,13 +171,13 @@ func TestHash_equal(t *testing.T) {
 	for i, tc := range cases {
 		t.Run(fmt.Sprintf("%d", i), func(t *testing.T) {
 			t.Logf("Hashing: %#v", tc.One)
-			one, err := Hash(tc.One, nil)
+			one, err := Hash(tc.One, testFormat, nil)
 			t.Logf("Result: %d", one)
 			if err != nil {
 				t.Fatalf("Failed to hash %#v: %s", tc.One, err)
 			}
 			t.Logf("Hashing: %#v", tc.Two)
-			two, err := Hash(tc.Two, nil)
+			two, err := Hash(tc.Two, testFormat, nil)
 			t.Logf("Result: %d", two)
 			if err != nil {
 				t.Fatalf("Failed to hash %#v: %s", tc.Two, err)
@@ -268,11 +270,11 @@ func TestHash_equalIgnore(t *testing.T) {
 	}
 
 	for _, tc := range cases {
-		one, err := Hash(tc.One, nil)
+		one, err := Hash(tc.One, testFormat, nil)
 		if err != nil {
 			t.Fatalf("Failed to hash %#v: %s", tc.One, err)
 		}
-		two, err := Hash(tc.Two, nil)
+		two, err := Hash(tc.Two, testFormat, nil)
 		if err != nil {
 			t.Fatalf("Failed to hash %#v: %s", tc.Two, err)
 		}
@@ -324,7 +326,7 @@ func TestHash_stringTagError(t *testing.T) {
 	}
 
 	for _, tc := range cases {
-		_, err := Hash(tc.Test, nil)
+		_, err := Hash(tc.Test, testFormat, nil)
 		if err != nil {
 			if ens, ok := err.(*ErrNotStringer); ok {
 				if ens.Field != tc.Field {
@@ -397,11 +399,11 @@ func TestHash_equalNil(t *testing.T) {
 	}
 
 	for _, tc := range cases {
-		one, err := Hash(tc.One, &HashOptions{ZeroNil: tc.ZeroNil})
+		one, err := Hash(tc.One, testFormat, &HashOptions{ZeroNil: tc.ZeroNil})
 		if err != nil {
 			t.Fatalf("Failed to hash %#v: %s", tc.One, err)
 		}
-		two, err := Hash(tc.Two, &HashOptions{ZeroNil: tc.ZeroNil})
+		two, err := Hash(tc.Two, testFormat, &HashOptions{ZeroNil: tc.ZeroNil})
 		if err != nil {
 			t.Fatalf("Failed to hash %#v: %s", tc.Two, err)
 		}
@@ -442,11 +444,11 @@ func TestHash_equalSet(t *testing.T) {
 	}
 
 	for _, tc := range cases {
-		one, err := Hash(tc.One, nil)
+		one, err := Hash(tc.One, testFormat, nil)
 		if err != nil {
 			t.Fatalf("Failed to hash %#v: %s", tc.One, err)
 		}
-		two, err := Hash(tc.Two, nil)
+		two, err := Hash(tc.Two, testFormat, nil)
 		if err != nil {
 			t.Fatalf("Failed to hash %#v: %s", tc.Two, err)
 		}
@@ -488,11 +490,11 @@ func TestHash_includable(t *testing.T) {
 	}
 
 	for _, tc := range cases {
-		one, err := Hash(tc.One, nil)
+		one, err := Hash(tc.One, testFormat, nil)
 		if err != nil {
 			t.Fatalf("Failed to hash %#v: %s", tc.One, err)
 		}
-		two, err := Hash(tc.Two, nil)
+		two, err := Hash(tc.Two, testFormat, nil)
 		if err != nil {
 			t.Fatalf("Failed to hash %#v: %s", tc.Two, err)
 		}
@@ -537,11 +539,11 @@ func TestHash_ignoreZeroValue(t *testing.T) {
 	}
 
 	for _, tc := range cases {
-		hashA, err := Hash(structA, &HashOptions{IgnoreZeroValue: tc.IgnoreZeroValue})
+		hashA, err := Hash(structA, testFormat, &HashOptions{IgnoreZeroValue: tc.IgnoreZeroValue})
 		if err != nil {
 			t.Fatalf("Failed to hash %#v: %s", structA, err)
 		}
-		hashB, err := Hash(structB, &HashOptions{IgnoreZeroValue: tc.IgnoreZeroValue})
+		hashB, err := Hash(structB, testFormat, &HashOptions{IgnoreZeroValue: tc.IgnoreZeroValue})
 		if err != nil {
 			t.Fatalf("Failed to hash %#v: %s", structB, err)
 		}
@@ -576,11 +578,11 @@ func TestHash_includableMap(t *testing.T) {
 	}
 
 	for _, tc := range cases {
-		one, err := Hash(tc.One, nil)
+		one, err := Hash(tc.One, testFormat, nil)
 		if err != nil {
 			t.Fatalf("Failed to hash %#v: %s", tc.One, err)
 		}
-		two, err := Hash(tc.Two, nil)
+		two, err := Hash(tc.Two, testFormat, nil)
 		if err != nil {
 			t.Fatalf("Failed to hash %#v: %s", tc.Two, err)
 		}
@@ -638,7 +640,7 @@ func TestHash_hashable(t *testing.T) {
 
 	for i, tc := range cases {
 		t.Run(fmt.Sprintf("%d", i), func(t *testing.T) {
-			one, err := Hash(tc.One, nil)
+			one, err := Hash(tc.One, testFormat, nil)
 			if tc.Err != "" {
 				if err == nil {
 					t.Fatal("expected error")
@@ -654,7 +656,7 @@ func TestHash_hashable(t *testing.T) {
 				t.Fatalf("Failed to hash %#v: %s", tc.One, err)
 			}
 
-			two, err := Hash(tc.Two, nil)
+			two, err := Hash(tc.Two, testFormat, nil)
 			if err != nil {
 				t.Fatalf("Failed to hash %#v: %s", tc.Two, err)
 			}

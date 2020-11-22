@@ -9,16 +9,6 @@ import (
 	"time"
 )
 
-// ErrNotStringer is returned when there's an error with hash:"string"
-type ErrNotStringer struct {
-	Field string
-}
-
-// Error implements error for ErrNotStringer
-func (ens *ErrNotStringer) Error() string {
-	return fmt.Sprintf("hashstructure: %s has hash:\"string\" set, but does not implement fmt.Stringer", ens.Field)
-}
-
 // HashOptions are options that are available for hashing.
 type HashOptions struct {
 	// Hasher is the hash function to use. If this isn't set, it will
@@ -48,6 +38,22 @@ type HashOptions struct {
 	// panic)
 	UseStringer bool
 }
+
+// Format specifies the hashing process used. Different formats typically
+// generate different hashes for the same value and have different properties.
+type Format uint
+
+const (
+	// FormatV1 is the format used in v1.x of this library. This has the
+	// downsides noted in issue #18 but allows simultaneous v1/v2 usage.
+	FormatV1 Format = iota
+
+	// FormatV2 is the current recommended format and fixes the issues
+	// noted in FormatV1.
+	FormatV2
+
+	formatMax // so we can easily find the end
+)
 
 // Hash returns the hash value of an arbitrary value.
 //
@@ -81,7 +87,7 @@ type HashOptions struct {
 //   * "string" - The field will be hashed as a string, only works when the
 //                field implements fmt.Stringer
 //
-func Hash(v interface{}, opts *HashOptions) (uint64, error) {
+func Hash(v interface{}, format Format, opts *HashOptions) (uint64, error) {
 	// Create default options
 	if opts == nil {
 		opts = &HashOptions{}
@@ -98,6 +104,7 @@ func Hash(v interface{}, opts *HashOptions) (uint64, error) {
 
 	// Create our walker and walk the structure
 	w := &walker{
+		format:          format,
 		h:               opts.Hasher,
 		tag:             opts.TagName,
 		zeronil:         opts.ZeroNil,
@@ -109,6 +116,7 @@ func Hash(v interface{}, opts *HashOptions) (uint64, error) {
 }
 
 type walker struct {
+	format          Format
 	h               hash.Hash64
 	tag             string
 	zeronil         bool
@@ -247,8 +255,10 @@ func (w *walker) visit(v reflect.Value, opts *visitOpts) (uint64, error) {
 			h = hashUpdateUnordered(h, fieldHash)
 		}
 
-		// Important: read the docs for hashFinishUnordered
-		h = hashFinishUnordered(w.h, h)
+		if w.format != FormatV1 {
+			// Important: read the docs for hashFinishUnordered
+			h = hashFinishUnordered(w.h, h)
+		}
 
 		return h, nil
 
@@ -353,8 +363,10 @@ func (w *walker) visit(v reflect.Value, opts *visitOpts) (uint64, error) {
 				h = hashUpdateUnordered(h, fieldHash)
 			}
 
-			// Important: read the docs for hashFinishUnordered
-			h = hashFinishUnordered(w.h, h)
+			if w.format != FormatV1 {
+				// Important: read the docs for hashFinishUnordered
+				h = hashFinishUnordered(w.h, h)
+			}
 		}
 
 		return h, nil
@@ -382,7 +394,7 @@ func (w *walker) visit(v reflect.Value, opts *visitOpts) (uint64, error) {
 			}
 		}
 
-		if set {
+		if set && w.format != FormatV1 {
 			// Important: read the docs for hashFinishUnordered
 			h = hashFinishUnordered(w.h, h)
 		}
