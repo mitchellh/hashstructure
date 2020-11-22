@@ -258,20 +258,15 @@ func (w *walker) visit(v reflect.Value, opts *visitOpts) (uint64, error) {
 				}
 
 				// if string is set, use the string value
-				if tag == "string" {
+				if tag == "string" || w.stringer {
 					if impl, ok := innerV.Interface().(fmt.Stringer); ok {
 						innerV = reflect.ValueOf(impl.String())
-					} else {
+					} else if tag == "string" {
+						// We only show this error if the tag explicitly
+						// requests a stringer.
 						return 0, &ErrNotStringer{
 							Field: v.Type().Field(i).Name,
 						}
-					}
-				}
-
-				// if Use Stringer option is set, attempt that
-				if w.stringer {
-					if impl, ok := innerV.Interface().(fmt.Stringer); ok {
-						innerV = reflect.ValueOf(impl.String())
 					}
 				}
 
