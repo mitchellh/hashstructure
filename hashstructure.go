@@ -81,10 +81,6 @@ type HashOptions struct {
 //                field implements fmt.Stringer
 //
 func Hash(v interface{}, opts *HashOptions) (uint64, error) {
-	if impl, ok := v.(Hashable); ok {
-		return impl.Hash(), nil
-	}
-
 	// Create default options
 	if opts == nil {
 		opts = &HashOptions{}
@@ -247,6 +243,20 @@ func (w *walker) visit(v reflect.Value, opts *visitOpts) (uint64, error) {
 
 		if impl, ok := parent.(Hashable); ok {
 			return impl.Hash()
+		}
+
+		// If we can address this value, check if the pointer value
+		// implements our interfaces and use that if so.
+		if v.CanAddr() {
+			vptr := v.Addr()
+			parentptr := vptr.Interface()
+			if impl, ok := parentptr.(Includable); ok {
+				include = impl
+			}
+
+			if impl, ok := parentptr.(Hashable); ok {
+				return impl.Hash()
+			}
 		}
 
 		t := v.Type()

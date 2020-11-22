@@ -621,37 +621,39 @@ func TestHash_hashable(t *testing.T) {
 		},
 	}
 
-	for _, tc := range cases {
-		one, err := Hash(tc.One, nil)
-		if tc.Err != "" {
-			if err == nil {
-				t.Fatal("expected error")
+	for i, tc := range cases {
+		t.Run(fmt.Sprintf("%d", i), func(t *testing.T) {
+			one, err := Hash(tc.One, nil)
+			if tc.Err != "" {
+				if err == nil {
+					t.Fatal("expected error")
+				}
+
+				if !strings.Contains(err.Error(), tc.Err) {
+					t.Fatalf("expected error to contain %q, got: %s", tc.Err, err)
+				}
+
+				return
+			}
+			if err != nil {
+				t.Fatalf("Failed to hash %#v: %s", tc.One, err)
 			}
 
-			if !strings.Contains(err.Error(), tc.Err) {
-				t.Fatalf("expected error to contain %q, got: %s", tc.Err, err)
+			two, err := Hash(tc.Two, nil)
+			if err != nil {
+				t.Fatalf("Failed to hash %#v: %s", tc.Two, err)
 			}
 
-			return
-		}
-		if err != nil {
-			t.Fatalf("Failed to hash %#v: %s", tc.One, err)
-		}
+			// Zero is always wrong
+			if one == 0 {
+				t.Fatalf("zero hash: %#v", tc.One)
+			}
 
-		two, err := Hash(tc.Two, nil)
-		if err != nil {
-			t.Fatalf("Failed to hash %#v: %s", tc.Two, err)
-		}
-
-		// Zero is always wrong
-		if one == 0 {
-			t.Fatalf("zero hash: %#v", tc.One)
-		}
-
-		// Compare
-		if (one == two) != tc.Match {
-			t.Fatalf("bad, expected: %#v\n\n%#v\n\n%#v", tc.Match, tc.One, tc.Two)
-		}
+			// Compare
+			if (one == two) != tc.Match {
+				t.Fatalf("bad, expected: %#v\n\n%#v\n\n%#v", tc.Match, tc.One, tc.Two)
+			}
+		})
 	}
 }
 
@@ -701,9 +703,10 @@ type testHashablePointer struct {
 	Value string
 }
 
-func (t *testHashablePointer) Hash() uint64 {
+func (t *testHashablePointer) Hash() (uint64, error) {
 	if strings.HasPrefix(t.Value, "foo") {
-		return 500
+		return 500, nil
 	}
-	return 100
+
+	return 100, nil
 }
