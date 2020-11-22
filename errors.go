@@ -13,3 +13,9 @@ type ErrNotStringer struct {
 func (ens *ErrNotStringer) Error() string {
 	return fmt.Sprintf("hashstructure: %s has hash:\"string\" set, but does not implement fmt.Stringer", ens.Field)
 }
+
+type ErrFormat struct{}
+
+func (*ErrFormat) Error() string {
+	return "format must be one of the defined Format values in the hashstructure library"
+}

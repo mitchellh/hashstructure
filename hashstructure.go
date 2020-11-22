@@ -44,9 +44,12 @@ type HashOptions struct {
 type Format uint
 
 const (
+	// To disallow the zero value
+	formatInvalid Format = iota
+
 	// FormatV1 is the format used in v1.x of this library. This has the
 	// downsides noted in issue #18 but allows simultaneous v1/v2 usage.
-	FormatV1 Format = iota
+	FormatV1
 
 	// FormatV2 is the current recommended format and fixes the issues
 	// noted in FormatV1.
@@ -61,6 +64,11 @@ const (
 // for the default values. The same *HashOptions value cannot be used
 // concurrently. None of the values within a *HashOptions struct are
 // safe to read/write while hashing is being done.
+//
+// The "format" is required and must be one of the format values defined
+// by this library. You should probably just use "FormatV2". This allows
+// generated hashes uses alternate logic to maintain compatibility with
+// older versions.
 //
 // Notes on the value:
 //
@@ -88,6 +96,11 @@ const (
 //                field implements fmt.Stringer
 //
 func Hash(v interface{}, format Format, opts *HashOptions) (uint64, error) {
+	// Validate our format
+	if format <= formatInvalid || format >= formatMax {
+		return 0, &ErrFormat{}
+	}
+
 	// Create default options
 	if opts == nil {
 		opts = &HashOptions{}
