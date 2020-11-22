@@ -100,7 +100,7 @@ func TestHash_equal(t *testing.T) {
 		{
 			struct{ Lname, Fname string }{"foo", "bar"},
 			struct{ Fname, Lname string }{"bar", "foo"},
-			true,
+			false,
 		},
 
 		{

@@ -28,5 +28,5 @@ func ExampleHash() {
 
 	fmt.Printf("%d", hash)
 	// Output:
-	// 6691276962590150517
+	// 1839806922502695369
 }
