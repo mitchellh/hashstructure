@@ -235,12 +235,8 @@ func (w *walker) visit(v reflect.Value, opts *visitOpts) (uint64, error) {
 			include = impl
 		}
 
-		if f := v.FieldByName("hash"); f.IsValid() {
-			return f.Uint(), nil
-		}
-
 		if impl, ok := parent.(Hashable); ok {
-			return impl.Hash(), nil
+			return impl.Hash()
 		}
 
 		t := v.Type()

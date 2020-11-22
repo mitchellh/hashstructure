@@ -127,46 +127,6 @@ func TestHash_equal(t *testing.T) {
 
 		{
 			struct {
-				Foo        string
-				unexported string
-				hash       uint64
-			}{
-				Foo:        "bar",
-				unexported: "baz",
-				hash:       10,
-			},
-			struct {
-				Foo        string
-				unexported string
-				hash       uint64
-			}{
-				Foo:        "bar",
-				unexported: "bang",
-				hash:       20,
-			},
-			false,
-		},
-
-		{
-			struct {
-				Foo  string
-				hash uint64
-			}{
-				Foo:  "bar",
-				hash: 10,
-			},
-			struct {
-				Foo  string
-				hash uint64
-			}{
-				Foo:  "baz",
-				hash: 10,
-			},
-			true,
-		},
-
-		{
-			struct {
 				testFoo
 				Foo string
 			}{
@@ -584,35 +544,58 @@ func TestHash_hashable(t *testing.T) {
 	cases := []struct {
 		One, Two interface{}
 		Match    bool
+		Err      string
 	}{
 		{
 			testHashable{Value: "foo"},
 			testHashable{Value: "foo"},
 			true,
+			"",
 		},
 
 		{
 			testHashable{Value: "foo1"},
 			testHashable{Value: "foo2"},
 			true,
+			"",
 		},
 		{
 			testHashable{Value: "foo"},
 			testHashable{Value: "bar"},
 			false,
+			"",
 		},
 		{
 			testHashable{Value: "nofoo"},
 			testHashable{Value: "bar"},
 			true,
+			"",
+		},
+		{
+			testHashable{Value: "bar", Err: fmt.Errorf("oh no")},
+			testHashable{Value: "bar"},
+			true,
+			"oh no",
 		},
 	}
 
 	for _, tc := range cases {
 		one, err := Hash(tc.One, nil)
+		if tc.Err != "" {
+			if err == nil {
+				t.Fatal("expected error")
+			}
+
+			if !strings.Contains(err.Error(), tc.Err) {
+				t.Fatalf("expected error to contain %q, got: %s", tc.Err, err)
+			}
+
+			return
+		}
 		if err != nil {
 			t.Fatalf("Failed to hash %#v: %s", tc.One, err)
 		}
+
 		two, err := Hash(tc.Two, nil)
 		if err != nil {
 			t.Fatalf("Failed to hash %#v: %s", tc.Two, err)
@@ -657,11 +640,17 @@ func (t testIncludableMap) HashIncludeMap(field string, k, v interface{}) (bool,
 
 type testHashable struct {
 	Value string
+	Err   error
 }
 
-func (t testHashable) Hash() uint64 {
-	if strings.HasPrefix(t.Value, "foo") {
-		return 500
+func (t testHashable) Hash() (uint64, error) {
+	if t.Err != nil {
+		return 0, t.Err
 	}
-	return 100
+
+	if strings.HasPrefix(t.Value, "foo") {
+		return 500, nil
+	}
+
+	return 100, nil
 }
