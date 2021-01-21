@@ -20,3 +20,10 @@ type IncludableMap interface {
 type Hashable interface {
 	Hash() (uint64, error)
 }
+
+// SliceAsSetsable is an interface that can optionally be implemented by
+// a struct. It will be called for each field in the struct to check whether
+// the filed should be treated as set.
+type SliceAsSetsable interface {
+	SliceAsSets(field string, v interface{}) (bool, error)
+}
