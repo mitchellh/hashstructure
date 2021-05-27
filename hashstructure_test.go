@@ -525,6 +525,7 @@ func TestHash_ignoreZeroValue(t *testing.T) {
 	structA := struct {
 		Foo string
 		Bar string
+		Map map[string]int
 	}{
 		Foo: "foo",
 		Bar: "bar",
@@ -533,6 +534,7 @@ func TestHash_ignoreZeroValue(t *testing.T) {
 		Foo string
 		Bar string
 		Baz string
+		Map map[string]int
 	}{
 		Foo: "foo",
 		Bar: "bar",
