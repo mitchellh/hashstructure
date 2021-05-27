@@ -323,8 +323,7 @@ func (w *walker) visit(v reflect.Value, opts *visitOpts) (uint64, error) {
 				}
 
 				if w.ignorezerovalue {
-					zeroVal := reflect.Zero(reflect.TypeOf(innerV.Interface())).Interface()
-					if innerV.Interface() == zeroVal {
+					if innerV.IsZero() {
 						continue
 					}
 				}
