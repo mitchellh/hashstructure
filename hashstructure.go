@@ -281,6 +281,10 @@ func (w *walker) visit(v reflect.Value, opts *visitOpts) (uint64, error) {
 		if impl, ok := parent.(Includable); ok {
 			include = impl
 		}
+		var sliceAsSets SliceAsSetsable
+		if impl, ok := parent.(SliceAsSetsable); ok {
+			sliceAsSets = impl
+		}
 
 		if impl, ok := parent.(Hashable); ok {
 			return impl.Hash()
@@ -293,6 +297,9 @@ func (w *walker) visit(v reflect.Value, opts *visitOpts) (uint64, error) {
 			parentptr := vptr.Interface()
 			if impl, ok := parentptr.(Includable); ok {
 				include = impl
+			}
+			if impl, ok := parentptr.(SliceAsSetsable); ok {
+				sliceAsSets = impl
 			}
 
 			if impl, ok := parentptr.(Hashable); ok {
@@ -349,6 +356,17 @@ func (w *walker) visit(v reflect.Value, opts *visitOpts) (uint64, error) {
 					}
 					if !incl {
 						continue
+					}
+				}
+
+				// Check if we implement SliceAsSetsable
+				if sliceAsSets != nil {
+					sas, err := sliceAsSets.SliceAsSets(fieldType.Name, innerV)
+					if err != nil {
+						return 0, err
+					}
+					if sas {
+						f |= visitFlagSet
 					}
 				}
 

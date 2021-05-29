@@ -676,6 +676,55 @@ func TestHash_hashable(t *testing.T) {
 	}
 }
 
+func TestHash_sliceAsSetsable(t *testing.T) {
+	cases := []struct {
+		One, Two interface{}
+		Match    bool
+	}{
+		{
+			testSliceAsSetsable{Kind: "map", Slice: []string{"1", "2"}, SliceSet: []string{"a", "b"}},
+			testSliceAsSetsable{Kind: "map", Slice: []string{"2", "1"}, SliceSet: []string{"a", "b"}},
+			true,
+		},
+		{
+			testSliceAsSetsable{Kind: "map", Slice: []string{"1", "2"}, SliceSet: []string{"a", "b"}},
+			testSliceAsSetsable{Kind: "map", Slice: []string{"2", "1"}, SliceSet: []string{"b", "a"}},
+			true,
+		},
+		{
+			testSliceAsSetsable{Kind: "seq", Slice: []string{"1", "2"}, SliceSet: []string{"a", "b"}},
+			testSliceAsSetsable{Kind: "seq", Slice: []string{"2", "1"}, SliceSet: []string{"a", "b"}},
+			false,
+		},
+		{
+			testSliceAsSetsable{Kind: "seq", Slice: []string{"1", "2"}, SliceSet: []string{"a", "b"}},
+			testSliceAsSetsable{Kind: "seq", Slice: []string{"1", "2"}, SliceSet: []string{"b", "a"}},
+			true,
+		},
+	}
+
+	for _, tc := range cases {
+		one, err := Hash(tc.One, testFormat, nil)
+		if err != nil {
+			t.Fatalf("Failed to hash %#v: %s", tc.One, err)
+		}
+		two, err := Hash(tc.Two, testFormat, nil)
+		if err != nil {
+			t.Fatalf("Failed to hash %#v: %s", tc.Two, err)
+		}
+
+		// Zero is always wrong
+		if one == 0 {
+			t.Fatalf("zero hash: %#v", tc.One)
+		}
+
+		// Compare
+		if (one == two) != tc.Match {
+			t.Fatalf("bad, expected: %#v\n\n%#v\n\n%#v", tc.Match, tc.One, tc.Two)
+		}
+	}
+}
+
 type testIncludable struct {
 	Value  string
 	Ignore string
@@ -728,4 +777,20 @@ func (t *testHashablePointer) Hash() (uint64, error) {
 	}
 
 	return 100, nil
+}
+
+type testSliceAsSetsable struct {
+	Kind     string
+	Slice    []string
+	SliceSet []string
+}
+
+func (t testSliceAsSetsable) SliceAsSets(field string, v interface{}) (bool, error) {
+	switch t.Kind {
+	case "map":
+		return true, nil
+	case "seq":
+		return field == "SliceSet", nil
+	}
+	return false, nil
 }
