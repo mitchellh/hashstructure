@@ -332,6 +332,9 @@ func (w *walker) visit(v reflect.Value, opts *visitOpts) (uint64, error) {
 				if tag == "string" || w.stringer {
 					if impl, ok := innerV.Interface().(fmt.Stringer); ok {
 						innerV = reflect.ValueOf(impl.String())
+						if w.ignorezerovalue && innerV.IsZero() {
+							continue
+						}
 					} else if tag == "string" {
 						// We only show this error if the tag explicitly
 						// requests a stringer.
