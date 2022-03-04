@@ -51,9 +51,13 @@ const (
 	// downsides noted in issue #18 but allows simultaneous v1/v2 usage.
 	FormatV1
 
-	// FormatV2 is the current recommended format and fixes the issues
-	// noted in FormatV1.
+	// FormatV2 is the format used in v2.x of this library.  This format
+	// had an issue when using the slices as sets option.
 	FormatV2
+
+	// FormatV3 is the current recommended format and fixes the issues
+	// noted in FormatV1 and FormatV2
+	FormatV3
 
 	formatMax // so we can easily find the end
 )
@@ -66,7 +70,7 @@ const (
 // safe to read/write while hashing is being done.
 //
 // The "format" is required and must be one of the format values defined
-// by this library. You should probably just use "FormatV2". This allows
+// by this library. You should probably just use "FormatV3". This allows
 // generated hashes uses alternate logic to maintain compatibility with
 // older versions.
 //
@@ -265,7 +269,7 @@ func (w *walker) visit(v reflect.Value, opts *visitOpts) (uint64, error) {
 			}
 
 			fieldHash := hashUpdateOrdered(w.h, kh, vh)
-			h = hashUpdateUnordered(h, fieldHash)
+			h = hashUpdateUnordered(h, fieldHash, w.format)
 		}
 
 		if w.format != FormatV1 {
@@ -372,7 +376,7 @@ func (w *walker) visit(v reflect.Value, opts *visitOpts) (uint64, error) {
 				}
 
 				fieldHash := hashUpdateOrdered(w.h, kh, vh)
-				h = hashUpdateUnordered(h, fieldHash)
+				h = hashUpdateUnordered(h, fieldHash, w.format)
 			}
 
 			if w.format != FormatV1 {
@@ -400,7 +404,7 @@ func (w *walker) visit(v reflect.Value, opts *visitOpts) (uint64, error) {
 			}
 
 			if set || w.sets {
-				h = hashUpdateUnordered(h, current)
+				h = hashUpdateUnordered(h, current, w.format)
 			} else {
 				h = hashUpdateOrdered(w.h, h, current)
 			}
@@ -443,8 +447,12 @@ func hashUpdateOrdered(h hash.Hash64, a, b uint64) uint64 {
 	return h.Sum64()
 }
 
-func hashUpdateUnordered(a, b uint64) uint64 {
-	return a ^ b
+func hashUpdateUnordered(a, b uint64, format Format) uint64 {
+	if format == FormatV3 {
+		return a + b
+	} else {
+		return a ^ b
+	}
 }
 
 // After mixing a group of unique hashes with hashUpdateUnordered, it's always

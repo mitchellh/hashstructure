@@ -2,12 +2,13 @@ package hashstructure
 
 import (
 	"fmt"
+	"math/rand"
 	"strings"
 	"testing"
 	"time"
 )
 
-var testFormat = FormatV2
+var testFormat = FormatV3
 
 func TestHash_identity(t *testing.T) {
 	cases := []interface{}{
@@ -196,6 +197,78 @@ func TestHash_equal(t *testing.T) {
 	}
 }
 
+func TestHash_slicesAsSetsRandom(t *testing.T) {
+	opts := HashOptions{SlicesAsSets: true}
+	tmp := make([]int, 100)
+	for i := 0; i < 100; i++ {
+		tmp[i] = rand.Int()
+	}
+	expected, err := Hash(tmp, testFormat, &opts)
+	if err != nil {
+		t.Fatalf("expected no error, got %s", err)
+	}
+
+	for i := 0; i < 100; i++ {
+		rand.Shuffle(len(tmp), func(a, b int) { tmp[a], tmp[b] = tmp[b], tmp[a] })
+		got, err := Hash(tmp, testFormat, &opts)
+		if err != nil {
+			t.Fatalf("expected no error, got %s", err)
+		}
+		if got != expected {
+			t.Errorf("expected %d, got %d for %v", expected, got, tmp)
+		}
+	}
+}
+
+func TestHash_slicesAsSets(t *testing.T) {
+	cases := []struct {
+		One, Two interface{}
+		Match    bool
+	}{
+		{
+			[]string{"a", "b", "c", "e", "e"},
+			[]string{"a", "b", "c", "d", "d"},
+			false,
+		},
+		{
+			[]string{"a", "b", "c"},
+			[]string{"a", "b", "c"},
+			true,
+		},
+		{
+			[]string{"b", "c", "a"},
+			[]string{"a", "b", "c"},
+			true,
+		},
+		{
+			[]string{"b", "c", "a", "d", "d"},
+			[]string{"a", "b", "c", "e", "e"},
+			false,
+		},
+	}
+	opts := HashOptions{SlicesAsSets: true}
+	for _, tc := range cases {
+		one, err := Hash(tc.One, testFormat, &opts)
+		if err != nil {
+			t.Fatalf("Failed to hash %#v: %s", tc.One, err)
+		}
+		two, err := Hash(tc.Two, testFormat, &opts)
+		if err != nil {
+			t.Fatalf("Failed to hash %#v: %s", tc.Two, err)
+		}
+
+		// Zero is always wrong
+		if one == 0 {
+			t.Fatalf("zero hash: %#v", tc.One)
+		}
+
+		// Compare
+		if (one == two) != tc.Match {
+			t.Fatalf("bad, expected: %#v\n\n%#v\n\n%#v", tc.Match, tc.One, tc.Two)
+		}
+	}
+
+}
 func TestHash_equalIgnore(t *testing.T) {
 	type Test1 struct {
 		Name string
