@@ -449,7 +449,7 @@ func hashUpdateOrdered(h hash.Hash64, a, b uint64) uint64 {
 
 func hashUpdateUnordered(a, b uint64, format Format) uint64 {
 	if format == FormatV3 {
-		return a + b
+		return a + (b << 32) | (b & 0xffff)
 	} else {
 		return a ^ b
 	}
