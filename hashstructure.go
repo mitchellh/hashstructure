@@ -1,6 +1,7 @@
 package hashstructure
 
 import (
+	"encoding"
 	"encoding/binary"
 	"fmt"
 	"hash"
@@ -37,6 +38,11 @@ type HashOptions struct {
 	// precedence (meaning that if the type doesn't implement fmt.Stringer, we
 	// panic)
 	UseStringer bool
+
+	// UseBinary will use the encoding.BinaryMarshaler for any type that implements
+	// that interface. Common types are time.Time and url.URL. Note that if you explicitly set
+	// the 'string' tag on a field, that will take precedence over this option.
+	UseBinary bool
 }
 
 // Format specifies the hashing process used. Different formats typically
@@ -124,6 +130,7 @@ func Hash(v interface{}, format Format, opts *HashOptions) (uint64, error) {
 		ignorezerovalue: opts.IgnoreZeroValue,
 		sets:            opts.SlicesAsSets,
 		stringer:        opts.UseStringer,
+		binary:          opts.UseBinary,
 	}
 	return w.visit(reflect.ValueOf(v), nil)
 }
@@ -136,6 +143,7 @@ type walker struct {
 	ignorezerovalue bool
 	sets            bool
 	stringer        bool
+	binary          bool
 }
 
 type visitOpts struct {
@@ -201,18 +209,6 @@ func (w *walker) visit(v reflect.Value, opts *visitOpts) (uint64, error) {
 		// A direct hash calculation
 		w.h.Reset()
 		err := binary.Write(w.h, binary.LittleEndian, v.Interface())
-		return w.h.Sum64(), err
-	}
-
-	switch v.Type() {
-	case timeType:
-		w.h.Reset()
-		b, err := v.Interface().(time.Time).MarshalBinary()
-		if err != nil {
-			return 0, err
-		}
-
-		err = binary.Write(w.h, binary.LittleEndian, b)
 		return w.h.Sum64(), err
 	}
 
@@ -286,6 +282,11 @@ func (w *walker) visit(v reflect.Value, opts *visitOpts) (uint64, error) {
 			return impl.Hash()
 		}
 
+		// Use BinaryMarshaler whenever possible
+		if bm, ok := parent.(encoding.BinaryMarshaler); w.binary && ok {
+			return hashBinary(w.h, bm)
+		}
+
 		// If we can address this value, check if the pointer value
 		// implements our interfaces and use that if so.
 		if v.CanAddr() {
@@ -297,6 +298,11 @@ func (w *walker) visit(v reflect.Value, opts *visitOpts) (uint64, error) {
 
 			if impl, ok := parentptr.(Hashable); ok {
 				return impl.Hash()
+			}
+
+			// Use BinaryMarshaler whenever possible
+			if bm, ok := parentptr.(encoding.BinaryMarshaler); w.binary && ok {
+				return hashBinary(w.h, bm)
 			}
 		}
 
@@ -441,6 +447,18 @@ func hashUpdateOrdered(h hash.Hash64, a, b uint64) uint64 {
 	}
 
 	return h.Sum64()
+}
+
+// hashBinary will use the BinaryMarshaler implementation of types implementing that interface to generate a hash. Like time.Time or url.URL
+func hashBinary(h hash.Hash64, bm encoding.BinaryMarshaler) (uint64, error) {
+	b, err := bm.MarshalBinary()
+	if err != nil {
+		return 0, err
+	}
+
+	h.Reset()
+	err = binary.Write(h, binary.LittleEndian, b)
+	return h.Sum64(), err
 }
 
 func hashUpdateUnordered(a, b uint64) uint64 {
