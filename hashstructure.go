@@ -337,9 +337,7 @@ func (w *walker) visit(v reflect.Value, opts *visitOpts) (uint64, error) {
 				}
 
 				// if string is set, use the string value, if not using stringers
-				//fmt.Println(canBinary(innerV.Interface()))
 				if tag == "string" || (w.stringer && !w.binary && !canBinary(innerV.Interface())) {
-					//fmt.Printf("string!!")
 					if impl, ok := innerV.Interface().(fmt.Stringer); ok {
 						innerV = reflect.ValueOf(impl.String())
 					} else if tag == "string" {
@@ -468,7 +466,6 @@ func hashBinary(h hash.Hash64, bm encoding.BinaryMarshaler) (uint64, error) {
 
 	h.Reset()
 	err = binary.Write(h, binary.LittleEndian, b)
-	fmt.Printf("bin hashed! %+v %d\n", bm, h.Sum64())
 	return h.Sum64(), err
 }
 
