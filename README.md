@@ -1,4 +1,4 @@
-# hashstructure [![GoDoc](https://godoc.org/github.com/mitchellh/hashstructure?status.svg)](https://godoc.org/github.com/mitchellh/hashstructure)
+# hashstructure [![GoDoc](https://godoc.org/github.com/adamhassel/hashstructure?status.svg)](https://godoc.org/github.com/adamhassel/hashstructure)
 
 hashstructure is a Go library for creating a unique hash value
 for arbitrary values in Go.
@@ -30,7 +30,9 @@ sending data across the network, caching values locally (de-dup), and so on.
 Standard `go get`:
 
 ```
-$ go get github.com/mitchellh/hashstructure/v2
+
+$ go get github.com/adamhassel/hashstructure/v2
+
 ```
 
 **Note on v2:** It is highly recommended you use the "v2" release since this
@@ -44,7 +46,7 @@ When using v2+, you can still generate weaker v1 hashes by using the
 
 ## Usage & Example
 
-For usage and examples see the [Godoc](http://godoc.org/github.com/mitchellh/hashstructure).
+For usage and examples see the [Godoc](http://godoc.org/github.com/adamhassel/hashstructure).
 
 A quick code example is shown below:
 

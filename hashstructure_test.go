@@ -166,18 +166,46 @@ func TestHash_equal(t *testing.T) {
 				now.Minute(), now.Second(), now.Nanosecond(), now.Location()), // does not contain monotonic clock
 			true,
 		},
+		{
+			struct {
+				Foo time.Time
+			}{
+				Foo: now, // contains monotonic clock
+			},
+			struct {
+				Foo time.Time
+			}{
+				time.Date(now.Year(), now.Month(), now.Day(), now.Hour(),
+					now.Minute(), now.Second(), now.Nanosecond(), now.Location()), // does not contain monotonic clock
+			},
+			true,
+		},
+		{
+			struct {
+				Foo time.Time `hash:"string"`
+			}{
+				Foo: now, // contains monotonic clock
+			},
+			struct {
+				Foo time.Time `hash:"string"`
+			}{
+				time.Date(now.Year(), now.Month(), now.Day(), now.Hour(),
+					now.Minute(), now.Second(), now.Nanosecond(), now.Location()), // does not contain monotonic clock
+			},
+			false, // False, since we need to test that setting the `string` tag disables binary hashing
+		},
 	}
 
 	for i, tc := range cases {
 		t.Run(fmt.Sprintf("%d", i), func(t *testing.T) {
 			t.Logf("Hashing: %#v", tc.One)
-			one, err := Hash(tc.One, testFormat, nil)
+			one, err := Hash(tc.One, testFormat, &HashOptions{UseBinary: true})
 			t.Logf("Result: %d", one)
 			if err != nil {
 				t.Fatalf("Failed to hash %#v: %s", tc.One, err)
 			}
 			t.Logf("Hashing: %#v", tc.Two)
-			two, err := Hash(tc.Two, testFormat, nil)
+			two, err := Hash(tc.Two, testFormat, &HashOptions{UseBinary: true})
 			t.Logf("Result: %d", two)
 			if err != nil {
 				t.Fatalf("Failed to hash %#v: %s", tc.Two, err)
@@ -187,7 +215,29 @@ func TestHash_equal(t *testing.T) {
 			if one == 0 {
 				t.Fatalf("zero hash: %#v", tc.One)
 			}
+			// Compare
+			if (one == two) != tc.Match {
+				t.Fatalf("bad, expected: %#v\n\n%#v\n\n%#v", tc.Match, tc.One, tc.Two)
+			}
+		})
+		t.Run(fmt.Sprintf("%d_UseStringer", i), func(t *testing.T) {
+			t.Logf("Hashing: %#v", tc.One)
+			one, err := Hash(tc.One, testFormat, &HashOptions{UseStringer: true, UseBinary: true})
+			t.Logf("Result: %d", one)
+			if err != nil {
+				t.Fatalf("Failed to hash %#v: %s", tc.One, err)
+			}
+			t.Logf("Hashing: %#v", tc.Two)
+			two, err := Hash(tc.Two, testFormat, &HashOptions{UseStringer: true, UseBinary: true})
+			t.Logf("Result: %d", two)
+			if err != nil {
+				t.Fatalf("Failed to hash %#v: %s", tc.Two, err)
+			}
 
+			// Zero is always wrong
+			if one == 0 {
+				t.Fatalf("zero hash: %#v", tc.One)
+			}
 			// Compare
 			if (one == two) != tc.Match {
 				t.Fatalf("bad, expected: %#v\n\n%#v\n\n%#v", tc.Match, tc.One, tc.Two)
@@ -270,11 +320,11 @@ func TestHash_equalIgnore(t *testing.T) {
 	}
 
 	for _, tc := range cases {
-		one, err := Hash(tc.One, testFormat, nil)
+		one, err := Hash(tc.One, testFormat, &HashOptions{UseBinary: true})
 		if err != nil {
 			t.Fatalf("Failed to hash %#v: %s", tc.One, err)
 		}
-		two, err := Hash(tc.Two, testFormat, nil)
+		two, err := Hash(tc.Two, testFormat, &HashOptions{UseBinary: true})
 		if err != nil {
 			t.Fatalf("Failed to hash %#v: %s", tc.Two, err)
 		}
@@ -671,6 +721,98 @@ func TestHash_hashable(t *testing.T) {
 			// Compare
 			if (one == two) != tc.Match {
 				t.Fatalf("bad, expected: %#v\n\n%#v\n\n%#v", tc.Match, tc.One, tc.Two)
+			}
+		})
+	}
+}
+func TestHash_binary(t *testing.T) {
+	now := time.Now()
+	type TestTime struct {
+		Name string
+		T    time.Time
+	}
+	type TestTimeTag struct {
+		Name string
+		T    time.Time `hash:"string"`
+	}
+	cases := []struct {
+		One, Two interface{}
+		Match    bool
+		S        bool // set to true if test should use "UseStringer"
+		B        bool // set to true if test should use "UseBinary"
+		Err      string
+	}{
+		{
+			TestTime{"One", now},
+			TestTime{"Two", now.Add(time.Second)},
+			false,
+			false,
+			true,
+			"",
+		},
+		{
+			TestTime{Name: "monotonic clock binary", T: now},
+			TestTime{Name: "monotonic clock binary", T: time.Date(now.Year(), now.Month(), now.Day(), now.Hour(),
+				now.Minute(), now.Second(), now.Nanosecond(), now.Location()),
+			},
+			true,
+			false,
+			true,
+			"",
+		},
+		{
+			TestTimeTag{Name: "monotonic clock binary string tag", T: now},
+			TestTimeTag{Name: "monotonic clock binary string tag", T: time.Date(now.Year(), now.Month(), now.Day(), now.Hour(),
+				now.Minute(), now.Second(), now.Nanosecond(), now.Location()),
+			},
+			false, // string tag overrides the binary option
+			false,
+			true,
+			"",
+		},
+		{
+			TestTime{Name: "monotonic clock binary stringer option", T: now},
+			TestTime{Name: "monotonic clock binary stringer option", T: time.Date(now.Year(), now.Month(), now.Day(), now.Hour(),
+				now.Minute(), now.Second(), now.Nanosecond(), now.Location()),
+			},
+			true, // UseStringer option should NOT override the binary option
+			false,
+			true,
+			"",
+		},
+	}
+
+	for i, tc := range cases {
+		t.Run(fmt.Sprintf("%d", i), func(t *testing.T) {
+			one, err := Hash(tc.One, testFormat, &HashOptions{UseBinary: tc.B, UseStringer: tc.S})
+			if tc.Err != "" {
+				if err == nil {
+					t.Fatal("expected error")
+				}
+
+				if !strings.Contains(err.Error(), tc.Err) {
+					t.Fatalf("expected error to contain %q, got: %s", tc.Err, err)
+				}
+
+				return
+			}
+			if err != nil {
+				t.Fatalf("Failed to hash %#v: %s", tc.One, err)
+			}
+
+			two, err := Hash(tc.Two, testFormat, &HashOptions{UseBinary: tc.B, UseStringer: tc.S})
+			if err != nil {
+				t.Fatalf("Failed to hash %#v: %s", tc.Two, err)
+			}
+
+			// Zero is always wrong
+			if one == 0 {
+				t.Fatalf("zero hash: %#v", tc.One)
+			}
+
+			// Compare
+			if (one == two) != tc.Match {
+				t.Fatalf("bad, expected: %t\n%+v\n%d\n%+v\n%d", tc.Match, tc.One, one, tc.Two, two)
 			}
 		})
 	}
