@@ -40,8 +40,10 @@ type HashOptions struct {
 	UseStringer bool
 
 	// UseBinary will use the encoding.BinaryMarshaler for any type that implements
-	// that interface. Common types are time.Time and url.URL. Note that if you explicitly set
-	// the 'string' tag on a field, that will take precedence over this option.
+	// that interface. Common types are time.Time and url.URL. Note that if you
+	// explicitly set the 'string' tag on a field, that will take precedence over
+	// this option. If both UseStringer and UseBinary are set, UseBinary takes
+	// precedence for types that satisfy both options.
 	UseBinary bool
 }
 
@@ -334,8 +336,10 @@ func (w *walker) visit(v reflect.Value, opts *visitOpts) (uint64, error) {
 					}
 				}
 
-				// if string is set, use the string value
-				if tag == "string" || w.stringer {
+				// if string is set, use the string value, if not using stringers
+				//fmt.Println(canBinary(innerV.Interface()))
+				if tag == "string" || (w.stringer && !w.binary && !canBinary(innerV.Interface())) {
+					//fmt.Printf("string!!")
 					if impl, ok := innerV.Interface().(fmt.Stringer); ok {
 						innerV = reflect.ValueOf(impl.String())
 					} else if tag == "string" {
@@ -449,6 +453,12 @@ func hashUpdateOrdered(h hash.Hash64, a, b uint64) uint64 {
 	return h.Sum64()
 }
 
+// canBinary returns a true value if i implements encoding.Binary
+func canBinary(i interface{}) bool {
+	_, ok := i.(encoding.BinaryMarshaler)
+	return ok
+}
+
 // hashBinary will use the BinaryMarshaler implementation of types implementing that interface to generate a hash. Like time.Time or url.URL
 func hashBinary(h hash.Hash64, bm encoding.BinaryMarshaler) (uint64, error) {
 	b, err := bm.MarshalBinary()
@@ -458,6 +468,7 @@ func hashBinary(h hash.Hash64, bm encoding.BinaryMarshaler) (uint64, error) {
 
 	h.Reset()
 	err = binary.Write(h, binary.LittleEndian, b)
+	fmt.Printf("bin hashed! %+v %d\n", bm, h.Sum64())
 	return h.Sum64(), err
 }
 
