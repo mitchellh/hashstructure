@@ -1,6 +1,7 @@
 package hashstructure
 
 import (
+	"encoding"
 	"encoding/binary"
 	"fmt"
 	"hash"
@@ -38,9 +39,10 @@ type HashOptions struct {
 	// panic)
 	UseStringer bool
 
-	// StringIgnoredStructs will attempt to .String() a struct if all of the
-	// members of the struct are ignored for the purposes of hashing.
-	StringIgnoredStructs bool
+	// UnhashedStructFallback will attempt to make use of the BinaryEncoder and
+	// Stringer interfaces (in that order) to hash structs that contain no
+	// exported fields.
+	UnhashedStructFallback bool
 }
 
 // Format specifies the hashing process used. Different formats typically
@@ -120,27 +122,27 @@ func Hash(v interface{}, format Format, opts *HashOptions) (uint64, error) {
 
 	// Create our walker and walk the structure
 	w := &walker{
-		format:               format,
-		h:                    opts.Hasher,
-		tag:                  opts.TagName,
-		zeronil:              opts.ZeroNil,
-		ignorezerovalue:      opts.IgnoreZeroValue,
-		sets:                 opts.SlicesAsSets,
-		stringer:             opts.UseStringer,
-		stringignoredstructs: opts.StringIgnoredStructs,
+		format:                 format,
+		h:                      opts.Hasher,
+		tag:                    opts.TagName,
+		zeronil:                opts.ZeroNil,
+		ignorezerovalue:        opts.IgnoreZeroValue,
+		sets:                   opts.SlicesAsSets,
+		stringer:               opts.UseStringer,
+		unhashedstructfallback: opts.UnhashedStructFallback,
 	}
 	return w.visit(reflect.ValueOf(v), nil)
 }
 
 type walker struct {
-	format               Format
-	h                    hash.Hash64
-	tag                  string
-	zeronil              bool
-	ignorezerovalue      bool
-	sets                 bool
-	stringer             bool
-	stringignoredstructs bool
+	format                 Format
+	h                      hash.Hash64
+	tag                    string
+	zeronil                bool
+	ignorezerovalue        bool
+	sets                   bool
+	stringer               bool
+	unhashedstructfallback bool
 }
 
 type visitOpts struct {
@@ -390,16 +392,26 @@ func (w *walker) visit(v reflect.Value, opts *visitOpts) (uint64, error) {
 				h = hashFinishUnordered(w.h, h)
 			}
 		}
-		// no fields involved in the hash! try and string instead.
-		if unhashedfields == l && w.stringignoredstructs {
-			if impl, ok := parent.(fmt.Stringer); ok {
-				w.h.Reset()
-				_, err := w.h.Write([]byte(impl.String()))
+		// no fields involved in the hash! try binary and string instead.
+		if unhashedfields == l && w.unhashedstructfallback {
+			var data []byte
+			if impl, ok := parent.(encoding.BinaryMarshaler); ok {
+				data, err = impl.MarshalBinary()
 				if err != nil {
 					return 0, err
 				}
-				return w.h.Sum64(), nil
 			}
+
+			if impl, ok := parent.(fmt.Stringer); ok {
+				data = []byte(impl.String())
+			}
+
+			w.h.Reset()
+			_, err := w.h.Write(data)
+			if err != nil {
+				return 0, err
+			}
+			return w.h.Sum64(), nil
 		}
 
 		return h, nil

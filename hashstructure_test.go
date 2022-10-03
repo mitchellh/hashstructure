@@ -730,12 +730,20 @@ func (t *testHashablePointer) Hash() (uint64, error) {
 	return 100, nil
 }
 
-type Unexported struct {
+type UnexportedStringer struct {
 	n int
 }
 
-func (u Unexported) String() string {
+func (u UnexportedStringer) String() string {
 	return fmt.Sprintf("%d", u.n)
+}
+
+type UnexportedBinaryer struct {
+	n int
+}
+
+func (u UnexportedBinaryer) MarshalBinary() (data []byte, err error) {
+	return []byte(fmt.Sprintf("%d", u.n)), nil
 }
 
 func TestHash_StringIgnoredStructs(t *testing.T) {
@@ -745,38 +753,74 @@ func TestHash_StringIgnoredStructs(t *testing.T) {
 		Err      string
 	}{
 		{
-			Unexported{n: 1},
-			Unexported{n: 1},
+			UnexportedStringer{n: 1},
+			UnexportedStringer{n: 1},
 			true,
 			"",
 		},
 		{
-			Unexported{n: 1},
-			Unexported{n: 2},
+			UnexportedStringer{n: 1},
+			UnexportedStringer{n: 2},
 			false,
 			"",
 		},
 		{
-			[]interface{}{Unexported{n: 1}},
-			[]interface{}{Unexported{n: 1}},
+			[]interface{}{UnexportedStringer{n: 1}},
+			[]interface{}{UnexportedStringer{n: 1}},
 			true,
 			"",
 		},
 		{
-			[]interface{}{Unexported{n: 1}},
-			[]interface{}{Unexported{n: 2}},
+			[]interface{}{UnexportedStringer{n: 1}},
+			[]interface{}{UnexportedStringer{n: 2}},
 			false,
 			"",
 		},
 		{
-			map[string]interface{}{"v": Unexported{n: 1}},
-			map[string]interface{}{"v": Unexported{n: 1}},
+			map[string]interface{}{"v": UnexportedStringer{n: 1}},
+			map[string]interface{}{"v": UnexportedStringer{n: 1}},
 			true,
 			"",
 		},
 		{
-			map[string]interface{}{"v": Unexported{n: 1}},
-			map[string]interface{}{"v": Unexported{n: 2}},
+			map[string]interface{}{"v": UnexportedStringer{n: 1}},
+			map[string]interface{}{"v": UnexportedStringer{n: 2}},
+			false,
+			"",
+		},
+		{
+			UnexportedBinaryer{n: 1},
+			UnexportedBinaryer{n: 1},
+			true,
+			"",
+		},
+		{
+			UnexportedBinaryer{n: 1},
+			UnexportedBinaryer{n: 2},
+			false,
+			"",
+		},
+		{
+			[]interface{}{UnexportedBinaryer{n: 1}},
+			[]interface{}{UnexportedBinaryer{n: 1}},
+			true,
+			"",
+		},
+		{
+			[]interface{}{UnexportedBinaryer{n: 1}},
+			[]interface{}{UnexportedBinaryer{n: 2}},
+			false,
+			"",
+		},
+		{
+			map[string]interface{}{"v": UnexportedBinaryer{n: 1}},
+			map[string]interface{}{"v": UnexportedBinaryer{n: 1}},
+			true,
+			"",
+		},
+		{
+			map[string]interface{}{"v": UnexportedBinaryer{n: 1}},
+			map[string]interface{}{"v": UnexportedBinaryer{n: 2}},
 			false,
 			"",
 		},
@@ -784,7 +828,7 @@ func TestHash_StringIgnoredStructs(t *testing.T) {
 
 	for i, tc := range cases {
 		t.Run(fmt.Sprintf("%d", i), func(t *testing.T) {
-			one, err := Hash(tc.One, testFormat, &HashOptions{StringIgnoredStructs: true})
+			one, err := Hash(tc.One, testFormat, &HashOptions{UnhashedStructFallback: true})
 			if tc.Err != "" {
 				if err == nil {
 					t.Fatal("expected error")
@@ -800,7 +844,7 @@ func TestHash_StringIgnoredStructs(t *testing.T) {
 				t.Fatalf("Failed to hash %#v: %s", tc.One, err)
 			}
 
-			two, err := Hash(tc.Two, testFormat, &HashOptions{StringIgnoredStructs: true})
+			two, err := Hash(tc.Two, testFormat, &HashOptions{UnhashedStructFallback: true})
 			if err != nil {
 				t.Fatalf("Failed to hash %#v: %s", tc.Two, err)
 			}
