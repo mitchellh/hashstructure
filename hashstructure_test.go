@@ -738,7 +738,7 @@ func (u Unexported) String() string {
 	return fmt.Sprintf("%d", u.n)
 }
 
-func TestHash_unexported_stringable(t *testing.T) {
+func TestHash_StringIgnoredStructs(t *testing.T) {
 	cases := []struct {
 		One, Two interface{}
 		Match    bool
@@ -784,7 +784,7 @@ func TestHash_unexported_stringable(t *testing.T) {
 
 	for i, tc := range cases {
 		t.Run(fmt.Sprintf("%d", i), func(t *testing.T) {
-			one, err := Hash(tc.One, testFormat, &HashOptions{})
+			one, err := Hash(tc.One, testFormat, &HashOptions{StringIgnoredStructs: true})
 			if tc.Err != "" {
 				if err == nil {
 					t.Fatal("expected error")
@@ -800,7 +800,7 @@ func TestHash_unexported_stringable(t *testing.T) {
 				t.Fatalf("Failed to hash %#v: %s", tc.One, err)
 			}
 
-			two, err := Hash(tc.Two, testFormat, nil)
+			two, err := Hash(tc.Two, testFormat, &HashOptions{StringIgnoredStructs: true})
 			if err != nil {
 				t.Fatalf("Failed to hash %#v: %s", tc.Two, err)
 			}
