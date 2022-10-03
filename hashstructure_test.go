@@ -729,3 +729,135 @@ func (t *testHashablePointer) Hash() (uint64, error) {
 
 	return 100, nil
 }
+
+type UnexportedStringer struct {
+	n int
+}
+
+func (u UnexportedStringer) String() string {
+	return fmt.Sprintf("%d", u.n)
+}
+
+type UnexportedBinaryer struct {
+	n int
+}
+
+func (u UnexportedBinaryer) MarshalBinary() (data []byte, err error) {
+	return []byte(fmt.Sprintf("%d", u.n)), nil
+}
+
+func TestHash_StringIgnoredStructs(t *testing.T) {
+	cases := []struct {
+		One, Two interface{}
+		Match    bool
+		Err      string
+	}{
+		{
+			UnexportedStringer{n: 1},
+			UnexportedStringer{n: 1},
+			true,
+			"",
+		},
+		{
+			UnexportedStringer{n: 1},
+			UnexportedStringer{n: 2},
+			false,
+			"",
+		},
+		{
+			[]interface{}{UnexportedStringer{n: 1}},
+			[]interface{}{UnexportedStringer{n: 1}},
+			true,
+			"",
+		},
+		{
+			[]interface{}{UnexportedStringer{n: 1}},
+			[]interface{}{UnexportedStringer{n: 2}},
+			false,
+			"",
+		},
+		{
+			map[string]interface{}{"v": UnexportedStringer{n: 1}},
+			map[string]interface{}{"v": UnexportedStringer{n: 1}},
+			true,
+			"",
+		},
+		{
+			map[string]interface{}{"v": UnexportedStringer{n: 1}},
+			map[string]interface{}{"v": UnexportedStringer{n: 2}},
+			false,
+			"",
+		},
+		{
+			UnexportedBinaryer{n: 1},
+			UnexportedBinaryer{n: 1},
+			true,
+			"",
+		},
+		{
+			UnexportedBinaryer{n: 1},
+			UnexportedBinaryer{n: 2},
+			false,
+			"",
+		},
+		{
+			[]interface{}{UnexportedBinaryer{n: 1}},
+			[]interface{}{UnexportedBinaryer{n: 1}},
+			true,
+			"",
+		},
+		{
+			[]interface{}{UnexportedBinaryer{n: 1}},
+			[]interface{}{UnexportedBinaryer{n: 2}},
+			false,
+			"",
+		},
+		{
+			map[string]interface{}{"v": UnexportedBinaryer{n: 1}},
+			map[string]interface{}{"v": UnexportedBinaryer{n: 1}},
+			true,
+			"",
+		},
+		{
+			map[string]interface{}{"v": UnexportedBinaryer{n: 1}},
+			map[string]interface{}{"v": UnexportedBinaryer{n: 2}},
+			false,
+			"",
+		},
+	}
+
+	for i, tc := range cases {
+		t.Run(fmt.Sprintf("%d", i), func(t *testing.T) {
+			one, err := Hash(tc.One, testFormat, &HashOptions{UnhashedStructFallback: true})
+			if tc.Err != "" {
+				if err == nil {
+					t.Fatal("expected error")
+				}
+
+				if !strings.Contains(err.Error(), tc.Err) {
+					t.Fatalf("expected error to contain %q, got: %s", tc.Err, err)
+				}
+
+				return
+			}
+			if err != nil {
+				t.Fatalf("Failed to hash %#v: %s", tc.One, err)
+			}
+
+			two, err := Hash(tc.Two, testFormat, &HashOptions{UnhashedStructFallback: true})
+			if err != nil {
+				t.Fatalf("Failed to hash %#v: %s", tc.Two, err)
+			}
+
+			// Zero is always wrong
+			if one == 0 {
+				t.Fatalf("zero hash: %#v", tc.One)
+			}
+
+			// Compare
+			if (one == two) != tc.Match {
+				t.Fatalf("bad, expected: %#v\n\n%#v\n\n%#v", tc.Match, tc.One, tc.Two)
+			}
+		})
+	}
+}
