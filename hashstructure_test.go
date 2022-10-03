@@ -729,3 +729,91 @@ func (t *testHashablePointer) Hash() (uint64, error) {
 
 	return 100, nil
 }
+
+type Unexported struct {
+	n int
+}
+
+func (u Unexported) String() string {
+	return fmt.Sprintf("%d", u.n)
+}
+
+func TestHash_unexported_stringable(t *testing.T) {
+	cases := []struct {
+		One, Two interface{}
+		Match    bool
+		Err      string
+	}{
+		{
+			Unexported{n: 1},
+			Unexported{n: 1},
+			true,
+			"",
+		},
+		{
+			Unexported{n: 1},
+			Unexported{n: 2},
+			false,
+			"",
+		},
+		{
+			[]interface{}{Unexported{n: 1}},
+			[]interface{}{Unexported{n: 1}},
+			true,
+			"",
+		},
+		{
+			[]interface{}{Unexported{n: 1}},
+			[]interface{}{Unexported{n: 2}},
+			false,
+			"",
+		},
+		{
+			map[string]interface{}{"v": Unexported{n: 1}},
+			map[string]interface{}{"v": Unexported{n: 1}},
+			true,
+			"",
+		},
+		{
+			map[string]interface{}{"v": Unexported{n: 1}},
+			map[string]interface{}{"v": Unexported{n: 2}},
+			false,
+			"",
+		},
+	}
+
+	for i, tc := range cases {
+		t.Run(fmt.Sprintf("%d", i), func(t *testing.T) {
+			one, err := Hash(tc.One, testFormat, &HashOptions{})
+			if tc.Err != "" {
+				if err == nil {
+					t.Fatal("expected error")
+				}
+
+				if !strings.Contains(err.Error(), tc.Err) {
+					t.Fatalf("expected error to contain %q, got: %s", tc.Err, err)
+				}
+
+				return
+			}
+			if err != nil {
+				t.Fatalf("Failed to hash %#v: %s", tc.One, err)
+			}
+
+			two, err := Hash(tc.Two, testFormat, nil)
+			if err != nil {
+				t.Fatalf("Failed to hash %#v: %s", tc.Two, err)
+			}
+
+			// Zero is always wrong
+			if one == 0 {
+				t.Fatalf("zero hash: %#v", tc.One)
+			}
+
+			// Compare
+			if (one == two) != tc.Match {
+				t.Fatalf("bad, expected: %#v\n\n%#v\n\n%#v", tc.Match, tc.One, tc.Two)
+			}
+		})
+	}
+}
