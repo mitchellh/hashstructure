@@ -37,6 +37,9 @@ type HashOptions struct {
 	// precedence (meaning that if the type doesn't implement fmt.Stringer, we
 	// panic)
 	UseStringer bool
+
+	// IgnoreTimeLocation produces the same hash for timestamps regardless of the location.
+	IgnoreTimeLocation bool
 }
 
 // Format specifies the hashing process used. Different formats typically
@@ -80,21 +83,20 @@ const (
 //
 // For structs, the hashing can be controlled using tags. For example:
 //
-//    struct {
-//        Name string
-//        UUID string `hash:"ignore"`
-//    }
+//	struct {
+//	    Name string
+//	    UUID string `hash:"ignore"`
+//	}
 //
 // The available tag values are:
 //
 //   * "ignore" or "-" - The field will be ignored and not affect the hash code.
 //
 //   * "set" - The field will be treated as a set, where ordering doesn't
-//             affect the hash code. This only works for slices.
+//     affect the hash code. This only works for slices.
 //
 //   * "string" - The field will be hashed as a string, only works when the
-//                field implements fmt.Stringer
-//
+//     field implements fmt.Stringer
 func Hash(v interface{}, format Format, opts *HashOptions) (uint64, error) {
 	// Validate our format
 	if format <= formatInvalid || format >= formatMax {
@@ -117,25 +119,27 @@ func Hash(v interface{}, format Format, opts *HashOptions) (uint64, error) {
 
 	// Create our walker and walk the structure
 	w := &walker{
-		format:          format,
-		h:               opts.Hasher,
-		tag:             opts.TagName,
-		zeronil:         opts.ZeroNil,
-		ignorezerovalue: opts.IgnoreZeroValue,
-		sets:            opts.SlicesAsSets,
-		stringer:        opts.UseStringer,
+		format:             format,
+		h:                  opts.Hasher,
+		tag:                opts.TagName,
+		zeronil:            opts.ZeroNil,
+		ignorezerovalue:    opts.IgnoreZeroValue,
+		sets:               opts.SlicesAsSets,
+		stringer:           opts.UseStringer,
+		ignoretimelocation: opts.IgnoreTimeLocation,
 	}
 	return w.visit(reflect.ValueOf(v), nil)
 }
 
 type walker struct {
-	format          Format
-	h               hash.Hash64
-	tag             string
-	zeronil         bool
-	ignorezerovalue bool
-	sets            bool
-	stringer        bool
+	format             Format
+	h                  hash.Hash64
+	tag                string
+	zeronil            bool
+	ignorezerovalue    bool
+	sets               bool
+	stringer           bool
+	ignoretimelocation bool
 }
 
 type visitOpts struct {
@@ -207,7 +211,13 @@ func (w *walker) visit(v reflect.Value, opts *visitOpts) (uint64, error) {
 	switch v.Type() {
 	case timeType:
 		w.h.Reset()
-		b, err := v.Interface().(time.Time).MarshalBinary()
+
+		timeVal := v.Interface().(time.Time)
+		if w.ignoretimelocation {
+			timeVal = timeVal.In(time.UTC)
+		}
+
+		b, err := timeVal.MarshalBinary()
 		if err != nil {
 			return 0, err
 		}
@@ -453,11 +463,11 @@ func hashUpdateUnordered(a, b uint64) uint64 {
 // hashUpdateUnordered can effectively cancel out a previous change to the hash
 // result if the same hash value appears later on. For example, consider:
 //
-//   hashUpdateUnordered(hashUpdateUnordered("A", "B"), hashUpdateUnordered("A", "C")) =
-//   H("A") ^ H("B")) ^ (H("A") ^ H("C")) =
-//   (H("A") ^ H("A")) ^ (H("B") ^ H(C)) =
-//   H(B) ^ H(C) =
-//   hashUpdateUnordered(hashUpdateUnordered("Z", "B"), hashUpdateUnordered("Z", "C"))
+//	hashUpdateUnordered(hashUpdateUnordered("A", "B"), hashUpdateUnordered("A", "C")) =
+//	H("A") ^ H("B")) ^ (H("A") ^ H("C")) =
+//	(H("A") ^ H("A")) ^ (H("B") ^ H(C)) =
+//	H(B) ^ H(C) =
+//	hashUpdateUnordered(hashUpdateUnordered("Z", "B"), hashUpdateUnordered("Z", "C"))
 //
 // hashFinishUnordered "hardens" the result, so that encountering partially
 // overlapping input data later on in a different context won't cancel out.
