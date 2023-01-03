@@ -676,6 +676,46 @@ func TestHash_hashable(t *testing.T) {
 	}
 }
 
+func TestHash_timestamp(t *testing.T) {
+	nowUTC := time.Now().In(time.UTC)
+
+	asiaTZ, err := time.LoadLocation("Asia/Shanghai")
+	if err != nil {
+		t.Fatalf("failed to load location: %s", err)
+	}
+	nowAsia := nowUTC.In(asiaTZ)
+
+	// compare the same timestamps with different timezones
+	hashUTC, err := Hash(nowUTC, FormatV2, nil)
+	if err != nil {
+		t.Fatalf("failed to hash %#v: %s", nowUTC, err)
+	}
+	hashAsia, err := Hash(nowAsia, FormatV2, nil)
+	if err != nil {
+		t.Fatalf("failed to hash %#v: %s", nowUTC, err)
+	}
+	if hashUTC == hashAsia {
+		t.Fatalf("bad, expected hashes to be different: %d - %d", hashUTC, hashAsia)
+	}
+
+	// compare the same timestamps with different timezones and ignore timezone
+	hashUTC, err = Hash(nowUTC, FormatV2, &HashOptions{
+		IgnoreTimeLocation: true,
+	})
+	if err != nil {
+		t.Fatalf("failed to hash %#v: %s", nowUTC, err)
+	}
+	hashAsia, err = Hash(nowAsia, FormatV2, &HashOptions{
+		IgnoreTimeLocation: true,
+	})
+	if err != nil {
+		t.Fatalf("failed to hash %#v: %s", nowUTC, err)
+	}
+	if hashUTC != hashAsia {
+		t.Fatalf("bad, expected hashes to be the same: %d - %d", hashUTC, hashAsia)
+	}
+}
+
 type testIncludable struct {
 	Value  string
 	Ignore string
